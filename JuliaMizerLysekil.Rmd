@@ -1,19 +1,15 @@
 ---
 title: "Confronting Size Spectrum Theory with Data"
-output: pdf_document
-author: Julia Blanchard
+author: Julia L. Blanchard
 date: 05/07/2019
+place: Lysekil Training Course, Sweden, Sept. 6-9, 2019
+output:
+  pdf_document: default
+  html_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
-#### Lysekil Training Course, Sweden, Sept. 6-9, 2019
-
-#### Asking Questions with Size Spectrum Models
-
-#### Julia L. BLanchard
+# Introduction
 
 Empiricists have been reporting changes in the size spectrum for many years, such as Sheldon and colleague's early observations (Sheldon et al). Even prior to that Ghilarov reported that log biomass would be equivalent in log size classess - we he showed for soil organisms - at large scales (Polishchuk ref). Fisheries scientists have been analysing trends in the fish community size spectrum for many years as well and have examined its' potential use as an indicator for the ecosystem effects of fishing (Jennings et al., Shin et al. 2005, Daan et al. 2005, Blanchard et al. 2005 etc.). This is because the slope of the "fished"" component of the size spectrum been observed to become steeper through time - an effect the loss of larger individuals through fishing mortality. The intercept of teh size spectrum on a log-log scale is alos important and is thought to be influenced by the amount and production of smaller primary producers in the ecosystem (Bianchi et al. 2001).
 
@@ -28,20 +24,24 @@ other life-history parameters such as the size at maturity (Hartvig et al. 2011,
 
 Here, we will focus mostly on  multispecies models but the same approach can be carried out with the other models. Actually since these are general approaches, they can be used with *any* deterministic mechanistic models. To start with though we will consider confronting the simplest model - the community model - with data on the community size spectrum (What is a size spectrum? See Ken's section!).
 
-###### Example #1 - Fitting the community model to size spectrum data
+## Example #1 - Fitting the community model to size spectrum data
 
 ```{r}
 #get required packages
 require(mizer)
 require(tidyverse)
+
 #lets's read in some north sea community size spectrum data
-css<-read.table("sizespecobs.txt",header=T)
+css<-read.table("data/sizespecobs.txt",header=T)
+
 #select data for year 2000
 css <- css %>%
   filter(year == "2000", Nden > 0) %>%
   select(midw, Nden)
+
 #have a look at plot
 plot(log(css$midw),log(css$Nden),xlab="midpoint of weight class (g)", ylab="number density")
+
 # we can fit a smoother to these points to generate easy access "observations" to compare with model later
 lo<-loess(log(css$Nden)~log(css$midw),span=0.2)
 points(log(css$midw),predict(lo),typ="l")
@@ -67,6 +67,7 @@ So, we want the model to be able to run over a range of parameters that we pass 
 runmodel<-function(parms){# set up and run!
 params <- set_community_model(knife_edge_size = 10,kappa=parms$kappa)
 sim <- project(params, effort = parms$effort, t_max = 200, dt=0.1)
+
 # select last 10 years of output (should be time-averaged)
 # slope only
 # output<-mean(getCommunitySlope(sim,min_w=16,max_w=1600)[190:200,1])
@@ -125,7 +126,7 @@ ggplot(grid, aes(x=effort, y=SSE,col=kappa) ) +
 
 ```
 
-What do these results suggest about the influence of kappa on the effects of fishing? Next plug the effort.hat and kappa.hat values back into the model and plot the modelled and observed size spectra.
+What do these results suggest about the influence of kappa on the effects of fishing? Next plug the effort.hat and kappa.hat values back into the model and plot the modelled and observed size spectra. How do these look compare to the orginanl data?
 
 ```{r}
 params <- set_community_model(knife_edge_size = 10,kappa=kappa.hat)
@@ -138,12 +139,12 @@ points(css$midw,css$Nden, col= "steel blue")
 
 ```
 
-### Exercise #1
+## Questions:
 
 The model predictions do pass through the points but the shape of the size spectra look a bit different. Think about wheter we are comparing "like with like" in terms of model and data. Would we get similar results if we just used the modelled and observed size size spectrum slopes and intercepts? What happens if we vary different parameters and different values? 
 
 
-##### Alternate Example # 1 or Example 2: Fantasy multispecies model and data
+# Alternate Example # 1 or Example 2: Fantasy multispecies model and data
 
 Let's set up a multispecies model in mizer. This is a fantasy ecosystem so anything goes! These parameters should be familiar from the earlier theory presentations of the trait-based model and we will explain them in more detail in the "Parameterisation" section. Feel free to change them!
 
@@ -151,7 +152,7 @@ Let's set up a multispecies model in mizer. This is a fantasy ecosystem so anyth
 ```{r}
 require(mizer)
 fic.params<-data.frame(matrix(0,5,0))
-fic.params$species<-c("Blinky","Fishtronaut", "Fluffy","Mermaids","Nessie")
+fic.params$species<-c("Blinky","Dory", "Fluffy","Mermaids","Nessie")
 fic.params$w_inf<-c(400,100,3000,40000,100000)
 fic.params$w_mat<-c(100,20,500,10000,20000)
 fic.params$z0<-c(0.2,0.2,0.14,0.12,0.25) ## mu_0
@@ -192,7 +193,7 @@ Now, let's make up some data by adding a bit of normally distrubuted error aroun
 ```{r}
 pred <- getBiomass(sim.fic)[200,]
 names(pred) <- names(getBiomass(sim.fic)[200,])
-dat <- as.matrix(read.table("ficdata.txt"))
+dat <- as.matrix(read.table("data/ficdata.txt"))
 plot(dat,pred,xlab="observed",ylab="predicted",log="xy")
 text(dat,pred,names(pred),cex=0.6,col="tomato")
 abline(0,1)
@@ -229,44 +230,81 @@ err
 
 The biomasses of Mermaids and Nessie are not very realistic in terms of distance from the observations. Let's work out whether we can find a better estimates of Rmax for these two species, simply by varying the values of Rmax, relative to the range of default values. 
 
-[Side note for later: where do these default Rmax values come from? Ken will tell you!]
+[Side note: where do these default Rmax values come from? Ken will tell you!]
+
+Setting up a grid of parameter values becomes onerous when we have several parameters all with different ranges and random sampling schemes are known to produce bias.  Many statisticians have devoted their time to developing to optimization algorithms, and there are many of these. Many are implemented in R. For this example we will use nloptr (optim is another popular package you may be familiar with). 
 
 ```{r}
 f <- function (new_rmax) {
-fic.params[3,"r_max"] <- new_rmax
+fic.params[fic.params$species==c("Mermaids"),"r_max"] <- new_rmax[1]
+fic.params[fic.params$species==c("Nessie"),"r_max"] <- new_rmax[2]
 print(sse(fic.params,fic.inter,dat))
 print(fic.params[3,"r_max"])
 }
-#latin hypercube sampling or optim?
-new_rmax <- exp(log(10)*seq(log10(1e0),log10(1e11),by=0.5)) 
-SSE <- sapply(new_rmax,f)
+# optimisation example
+require(nloptr)
+new_rmax <- c(1e4,1e3) 
+SSE <- optim(new_rmax,f)
 
+#SSE <- nloptr(new_rmax,f,opts=list("algorithm" = "NLOPT_LN_COBYLA"))
 ```
 
-Our new estimate of Rmax will be the one with the lowest SSE.
+That seemed to converge very quickly. Let's take a look at what the model looks like now.
 
 ```{r}
-rmax.hat <- new_rmax[which.min(SSE)]
-plot(new_rmax,SSE,typ="l")
-```
-
-It seems like our best estimate results in a model with a lot less Fluffy! Take a few minutes to discuss *Why?* 
-
-```{r}
-fic.params[3,"r_max"] <- rmax.hat
+# put new Rmax values into to model
+fic.params[fic.params$species==c("Mermaids"),"r_max"] <- SSE[1]
+fic.params[fic.params$species==c("Nessie"),"r_max"] <- SSE[2]
 params.fic <- MizerParams(fic.params, fic.inter,r_pp=0.1,lambda=2.2)
-sim.fic <- project(params.fic, t_max = 200,dt=0.1)
-# show the plot
-plot(sim.fic)
+sim.fic2 <- project(params.fic, t_max = 200,dt=0.1)
+
+# show the diagnostic plot
+plot(sim.fic2)
+
 #check out fit
-pred<-getBiomass(sim.fic)[200,]
+pred<-getBiomass(sim.fic2)[200,]
 plot(dat,pred,xlab="observed",ylab="predicted",log="xy")
 abline(0,1)
+
+#look at change in biomasses before and after new parameter estimation.
+change<-data.frame(species=names(getBiomass(sim.fic2)[200,]),change=getBiomass(sim.fic2)[200,]/getBiomass(sim.fic)[200,])
+
+# barplot of model biomass change before and after parameter estimation
+ ggplot(data=change, aes(x=species, y=change)) +
+  geom_bar(stat="identity", width=0.5) +
+  theme_bw()
+ 
+ # percentage difference from data
+pdiff<-data.frame(species=names(getBiomass(sim.fic2)[200,]),x=((pred-dat)/dat)*100)
+
+# barplot of percentage difference of new modelled biomasses relative to data 
+ ggplot(data=pdiff, aes(x=species, y=x)) +
+  geom_bar(stat="identity", width=0.5) +
+  theme_bw()
+ 
+
+
 ```
+
+
+It seems like our best estimate results in a model with a lot more Nessie!
+Also the actual fits are not that great in percentage terms. The other species seem okay, but there is 100% more Nessie biomass in the model than the observations. Take a few minutes to discuss *Why?* 
+
+Too easy? Yes! Typically optimisation takes a lot longer than this. Here we cheated a bit and our initial model parameters values were not that unreasonable compared to the observations (they were actually generated by adding some noise around the observations!). Change the initial Rmax values and see what happens.
+
+Also, we need to think about what we consider to be a good enough fit to data? This largely depends on the questions we  are aksing with the model. One important aspect is identifying what our expectations are in terms of the emergent ecological properties of the model. To do this we can examine e.g. growth curves, species' and community size spectra,mortality rates, responses to fishing.
+
+
+[Gustav's RShiny app is a useful way to examine and verify these model predictions before and after model is calibrated]
+
 
 #### Example # 2 or 3  - Time-averaged Optimisation OR Time-series Optimisation
 
-That was just for our given set of fantasy model parameters and some made up data - a fantasy indeed. Real ecology is so much messier! Also we would like to do better than just evaluating what the smallest error is for one species' Rmax, across a range of values.  We would like to learn about what values the model parameters would need to be to best capture the data. We can optimise all of the species' Rmax parameters simultaneously to see how well we can fit the data.  This time we will use the North Sea model - but instead of using the provided calibrated North Sea Rmax values in mizer from Blanchard et al. 2014 (who tried their best at the time...) we will reset the Rmax values and redo the analysis using a few new packages in R. Spoiler alert: we don't get the same values.
+That was just for our given set of fantasy model parameters and some made up data - a fantasy indeed. Real ecology is so much messier! Also we would like to do better than just evaluating what the smallest error is for  two species' Rmax, across a range of values.  We would like to learn about what values the model parameters would need to be to best capture the data. We can optimise all of the species' Rmax parameters simultaneously to see how well we can fit the data.  
+
+This time we will use the North Sea model - but instead of using the provided calibrated North Sea Rmax values in mizer from Blanchard et al. 2014 (who tried their best at the time...) we will reset the Rmax values and redo the analysis using a few new packages in R. We previously used optim (combined with brute force in the form of penaly functions!) for the Blanchard et al. 2014 paper. Since then, we have moved on a bit and so has the fast paced world of computation and R. We have also develop Bayesian methods with mizer (Spence et al. 2016) but these are very skillful and time consuming approaches, perhaps more than is warranted investing for some applications. One issue with optimisation with these modes though is that the likelihood surface tends to contain lots of local minima. Also for lots of the parameter values the model outputs are not plausible. 
+
+So, we will start by reducing the parameter space by specifying some ecologically meaningful constraints - by describing some criteria for "what is plausible?"
 
 First, let's check out the model using using the default Rmax values.
 
@@ -279,10 +317,8 @@ sim <- project(params, t_max = 200, effort = 1,dx=200,dt=0.1)
 plot(sim)
 ```
 
-Many statisticians have devoted their time to developing to optimization algorithms, and there are many of these. Many are implemented in R. We used optim (combined with brute force in the form of penaly functions!) for the Blanchard et al. 2014 paper. Since then, things have moved on a bit in the fast paced world of computation and R. Here we use essentially the same simple least squares method, but we use the package nloptr. 
 
-
-We will move away from the default values and attempt to gain inference about the Rmax values from the catch data. First we will need to rewrite our functions to ensure we pass the optimozer the correct data and parameters.
+We will move away from the default values and attempt to gain inference about the Rmax values from the catch data. First we will need to rewrite our functions to ensure we pass the optimizer the correct data and parameters.
 
 ```{r}
 runmodel<-function(params, inter){ 
@@ -296,7 +332,34 @@ return(output)
 ```
 
 
-To use noptlr ( or optim or another package)  we need to specify the function we want to minimize and the initial values for the parameters. Starting from this point, the package's algorithms will search the parameter space for the value that minimizes the value of our objective function (sse).
+## Reducing the parameter space 
+
+An alternative to running the optimiser and model with initial values is to reduce the parameters space to those values that actually lead the model to pluaisble, and ecolgically accpetable model outputs. This may be achieved form careful hand-tuning and "pattern-oriented" visual examination  (ref, see Gustav's RShiny example) to achive initial values that are very close to those "optimal values". However, it may also be the case that we would like to learn what range of values can lead to plausible.
+
+## History matching
+
+We use Latin Hypercube Sampling to randomly sample the parameter space, folllowed by a combination of least squares and history matching (Clark et al. 2003) to evaluate the parameter sets.
+
+We evaluate the plausibility of these paramters by running the model and evaluationg some criteria. These can be designed to be specific to your study system and reserach questions. For this example, we simply aim for the species in the system to be:
+i) within the range of observed catches (+/- 20%)
+ii) for species to still coexist when fishing is set to 0
+iii) estimated growth parameters are close to empirical estimates 
+
+All parameter sets that do not meet these criteria are implausible and are hence REJECTED. This provides us with a new subset of the parameter space within which we can proceed to sample again via optimisation (with bootstrapping if we wish to examine uncertainies around these values) and/or more sophisticated Bayesian or Approximate Bayesian Computation (Toni et al 2009) techniques to formally examine parameter uncertainity including time-series fitting (Spence et al. 2016, Spence et al. in review).
+
+[Note: we also can use Gustav's RShiny app to examine these outputs].
+
+[stopped here]
+
+#### Latin hypercube sampling
+
+
+#### Run the rejection algorithm for all of the saved output files and add column of "reject" variable to input table
+
+[this may be a good enough departure point for your ballpark results]
+
+### Optimisation in the reduced parameter space
+To use optim ( or noptlr or another package)  we need to specify the function we want to minimize and the initial values for the parameters. Starting from this point, the package's algorithms will search the parameter space for the value that minimizes the value of our objective function (sse).
 
 First, we will write an objective function to try to estimate the Rmax values for all 12 species simultaneously. We'll work on the log-transformed values for Rmax parameters as well as the observed catches. Note that Blanchard et al. 2014 used catches and SSB from stock assessment models to estimate Rmax and kappa. Here, to avoid the model bias we will use catches only (and as in Spence et al.2016). 
 
@@ -351,44 +414,22 @@ plot(dat,pred)
 abline(0,1)
 ```
 
-As you can see this is not the most convincing fit! Only a couple of the values actually change. This is suspicious and likely means the model is stuck in a local minimum.
 
-##### Reducing the parameter space 
+#Part 2: Dynamics: Modelling Changes in Fish Communities Through Time
 
-An alternative to running the optimiser and model with initial values is to reduce the parameters space to those values that actually lead the model to pluaisble, and ecolgically accpetable model outputs. This may be achieved form careful hand-tuning and "pattern-oriented" visual examination  (ref, see Gustav's RShiny example) to achive initial values that are very close to those "optimal values". However, it may also be the case that we would like to learn what range of values can lead to plausible.
+##TO ADD Example 3 - How does the community change through time in response to changes in fishing. 
+How can we model changes through time from fishing?  Unless already shown in time series calibration above (in which case can be an examination of scenario projection after time series).
 
-### History matching
+#TO ADD Example 4 - How can we model changes through time from climate change? 
+Show example run and how to set up model and force with temperature and/or background resource changes through time (we can use extended mizer version "thermizer" for this example as it's published, but we have other dev branches in prep). Leads into topics discussed in worksahop...
 
-We use Latin Hypercube Sampling to randomly sample the parameter space, folllowed by a combination of least squares and history matching (Clark et al. 2003) to evaluate the parameter sets.
-
-We evaluate the plausibility of these paramters by running the model and evaluationg some criteria. These can be designed to be specific to your study system and reserach questions. For this example, we simply aim for the species in the system to be:
-i) within the range of observed catches (+/- 20%)
-ii) for species to still coexist when fishing is set to 0
-iii) estimated growth parameters are close to empirical estimates. 
-
-[Note: we also can use Gustav's RShiny app to examine these outputs].
-
-All parameter sets that do not meet these criteria are implausible and are hence REJECTED. This provides us with a new subset of the parameter space within which we can proceed to sample again via optimisation (with bootstrapping if we wish to examine uncertainies around these values) and/or more sophisticated Bayesian or Approximate Bayesian Computation (Toni et al 2009) techniques to formally examine parameter uncertainity including time-series fitting (Spence et al. 2016, Spence et al. in review).
-
-#### Latin hypercube sampling
-
-
-#### Run the rejection algorithm for all of the saved output files and add column of "reject" variable to input table
-
-
-######### Dynamics: Modelling Changes in Fish Communities Through Time
-
-#### TO ADD Example 3 - How does the community change through time in response to changes in fishing. How can we model changes through time from fishing?  Unless already shown in time series calibration above (in which case can be an examination of scenario projection after time series).
-
-#### TO ADD Example 4 - How can we model changes through time from climate change? Show example run and how to set up model and force with temperature and/or background resource changes through time (we can use extended mizer version "thermizer" for this example as it's published, but we have other dev branches in prep). Leads into topics discussed in worksahop...
-
-#### TO ADD Questions for explorations:  
-## We can ask the class to break up into groups to decide on a question each to address together and report back on.
+#TO ADD Questions for Small Group Discussion:  
+ We can ask the class to break up into groups to decide on a question each to address together and report back on.
 ## Some suggestions:
-## Does the climate change enabled model fit the data any better through time?
-## Do all species responf in the same way to the combined effects of fishing and climate change forcings?
-## How quickly do different fish recover from fishing?
-## What happens when we add species that are not fish species?
+-Does the climate change enabled model fit the data any better through time?
+-Do all species responf in the same way to the combined effects of fishing and climate change forcings?
+-How quickly do different fish recover from fishing?
+-What happens when we add species that are not fish species?
 
 
 
