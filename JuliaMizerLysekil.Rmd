@@ -141,7 +141,7 @@ points(css$midw,css$Nden, col= "steel blue")
 
 ## Questions:
 
-The model predictions do pass through the points but the shape of the size spectra look a bit different. Think about wheter we are comparing "like with like" in terms of model and data. Would we get similar results if we just used the modelled and observed size size spectrum slopes and intercepts? What happens if we vary different parameters and different values? 
+The model predictions do pass through the points but the shape of the size spectra look a bit different. Would we get similar results if we just used the modelled and observed size size spectrum slopes and intercepts? What happens if we vary different parameters and different values? 
 
 
 # Alternate Example # 1 or Example 2: Fantasy multispecies model and data
@@ -318,43 +318,69 @@ plot(sim)
 ```
 
 
-We will move away from the default values and attempt to gain inference about the Rmax values from the catch data. First we will need to rewrite our functions to ensure we pass the optimizer the correct data and parameters.
-
-```{r}
-runmodel<-function(params, inter){ 
-# set up and run!
-paramsr <- MizerParams(params, inter)
-sim <- project(paramsr, t_max = 200,dt=0.1, effort = 1)
-# use the same time slot (should be time-avaeraged)
-output<-colMeans(getYield(sim)[150:200,])/1e6
-return(output)
-}
-```
 
 
 ## Reducing the parameter space 
 
-An alternative to running the optimiser and model with initial values is to reduce the parameters space to those values that actually lead the model to pluaisble, and ecolgically accpetable model outputs. This may be achieved form careful hand-tuning and "pattern-oriented" visual examination  (ref, see Gustav's RShiny example) to achive initial values that are very close to those "optimal values". However, it may also be the case that we would like to learn what range of values can lead to plausible.
+An alternative to running the optimiser and model with initial values is to reduce the parameters space to those values that actually lead the model to plausible, and ecolgically accpetable model outputs. This may be achieved form careful hand-tuning and "pattern-oriented" visual examination  (ref, see Gustav's RShiny example) to achive initial values that are very close to those "optimal values". However, it may also be the case that we would like to learn what range of values can lead to plausible.
 
 ## History matching
 
-We use Latin Hypercube Sampling to randomly sample the parameter space, folllowed by a combination of least squares and history matching (Clark et al. 2003) to evaluate the parameter sets.
+We sample the parameter space randomly (another approach is the Latin Hypercube Sampling), folllowed by a combination of least squares and history matching (Clark et al. 2003) to evaluate the parameter sets.
 
-We evaluate the plausibility of these paramters by running the model and evaluationg some criteria. These can be designed to be specific to your study system and reserach questions. For this example, we simply aim for the species in the system to be:
-i) within the range of observed catches (+/- 20%)
-ii) for species to still coexist when fishing is set to 0
-iii) estimated growth parameters are close to empirical estimates 
+We then evaluate the plausibility of these paramters by running the model and evaluationg some criteria. These can be designed to be specific to your study system and reserach questions. For this example, we simply aim for the species in the system to be:
+i) within the range of observed catches (+/- 20% of mean catches)
+
+We could also add additonal constraints e.g.
+ii) estimated growth parameters are close to ( witin ) empirical estimates 
+and 
+iii) for species to still coexist when fishing is set to 0 for all species
 
 All parameter sets that do not meet these criteria are implausible and are hence REJECTED. This provides us with a new subset of the parameter space within which we can proceed to sample again via optimisation (with bootstrapping if we wish to examine uncertainies around these values) and/or more sophisticated Bayesian or Approximate Bayesian Computation (Toni et al 2009) techniques to formally examine parameter uncertainity including time-series fitting (Spence et al. 2016, Spence et al. in review).
 
 [Note: we also can use Gustav's RShiny app to examine these outputs].
 
-[stopped here]
-
-#### Latin hypercube sampling
+#### Random sampling
 
 
-#### Run the rejection algorithm for all of the saved output files and add column of "reject" variable to input table
+```{r}
+#load packages needed
+require(lhs)
+require(parallel)
+# number of samples to be drawn
+n<-8*1000
+#number of parameter columns
+p<- 14
+paramset<-randomLHS(n,p)
+#write over with random values
+paramset[,1:12]<-qunif(paramset[,1:12],1e2,1e12)
+```
+
+We will move away from the default values and attempt to gain inference about the Rmax values from the catch data. We will need to rewrite our functions to ensure we pass the optimizer the correct data and parameters. 
+```{r}
+runmodel<-function(params, inter){ 
+# set up and run!
+paramsr <- MizerParams(params, inter)
+paramsr@species_params$erepro <- 0.01
+sim <- project(paramsr, t_max = 200,dt=0.1, effort = 1)
+# use the same time slot (should be time-avaeraged)
+output<-colMeans(getYield(sim)[150:200,])/1e6
+return(output)
+}
+
+# function to reject - catch data only
+reject <- function(params,dat,inter) {
+pred <- runmodel(NS_species_params, inter)
+reject <-sum(ifelse(pred > dat+(0.20*dat) | pred < dat-(0.20*dat),1,0)) > 0
+# let's also calculate sum of squared errors
+discrep <- pred - dat
+err <- sum(discrep^2)
+return(list(reject=reject,error=err,params=params$r_max))
+}
+
+```
+
+# Run the rejection algorithm for all of the saved output files and add column of "reject" variable to input table
 
 [this may be a good enough departure point for your ballpark results]
 
@@ -365,23 +391,36 @@ First, we will write an objective function to try to estimate the Rmax values fo
 
 ```{r,warning=T}
 #get data on catches over time-averaged period
-catch <- read.csv("catches.csv")
+catch <- read.delim("data/catches.txt")
 dat <- catch[,"Catch_8595"]
-#make up a new set of rmax values, here that scales with species' w_inf
-NS_species_params$r_max <- 1e11*NS_species_params$w_inf^-1.2
 
-#set up error function
-sse <- function(params, dat,inter) {
-pred <- runmodel(params,inter)
-# mean squared logarithmic error
-discrep <- log(dat+1) - log(pred+1)
-#discrep <- dat - pred
-return(sum(discrep^2)/length(discrep))
-# sum of squared errors
+f <- function (par) {
+NS_species_params$r_max <- as.numeric(par[1:12])
+reject(params=NS_species_params,dat,inter)
 }
-#test for 1 run
-error<-sse(NS_species_params,dat,inter)
 
+#system.time({
+#out <- apply(paramset,1,FUN=f)
+#})
+
+#  user  system elapsed 
+# 77.188   8.755  85.749
+
+# speed up by running on cluster
+numCores <-detectCores()
+
+cl <- makeForkCluster(getOption("cl.cores", numCores))
+clusterExport(cl, as.list(ls()))
+
+system.time({
+results <- parRapply(cl=cl,paramset,f)
+})
+
+#  user  system elapsed 
+#  0.095   0.065  29.624
+
+# When you're done, clean up the cluster
+stopCluster(cl)
 ```
 
 We then pass the parameters to the functions and run the optimiser - and hope for the best! Let's take a break here...
@@ -391,15 +430,7 @@ f <- function (par) {
 NS_species_params$r_max <- exp(par)
 sse(params,dat,inter)
 }
-optim(fn=f,par=log(NS_species_params$r_max),method=c("SANN"), control=list(trace=1)) -> fit
 
-#start with global optoimization
-nloptr(x0=log(NS_species_params$r_max),lb=rep(log(1e3),12), ub=rep(log(1e12),12), eval_f=f,opts=list("algorithm" =
-"NLOPT_GN_DIRECT_L","xtol_rel"=1.0e-4)) -> fit
-
-#then use these in a local optimisation scheme
-nloptr(x0=log(NS_species_params$r_max),lb=rep(log(1e3),12), ub=rep(log(1e12),12), eval_f=f,opts=list("algorithm" =
-"NLOPT_LN_COBYLA","xtol_rel"=1.0e-4)) -> fit
 ```
 
 Now let's see how these optimised values  of Rmax the time-averaged model fits. 
@@ -415,17 +446,20 @@ abline(0,1)
 ```
 
 
-#Part 2: Dynamics: Modelling Changes in Fish Communities Through Time
+# Part 2: Dynamics: Modelling Changes in Fish Communities Through Time
 
-##TO ADD Example 3 - How does the community change through time in response to changes in fishing. 
+# TO ADD Example 3 - How does the community change through time in response to changes in fishing. 
+
 How can we model changes through time from fishing?  Unless already shown in time series calibration above (in which case can be an examination of scenario projection after time series).
 
-#TO ADD Example 4 - How can we model changes through time from climate change? 
+# TO ADD Example 4 - How can we model changes through time from climate change? 
+
 Show example run and how to set up model and force with temperature and/or background resource changes through time (we can use extended mizer version "thermizer" for this example as it's published, but we have other dev branches in prep). Leads into topics discussed in worksahop...
 
-#TO ADD Questions for Small Group Discussion:  
+# TO ADD Questions for Small Group Discussion:  
  We can ask the class to break up into groups to decide on a question each to address together and report back on.
-## Some suggestions:
+
+# Some suggestions:
 -Does the climate change enabled model fit the data any better through time?
 -Do all species responf in the same way to the combined effects of fishing and climate change forcings?
 -How quickly do different fish recover from fishing?
