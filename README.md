@@ -1,5 +1,6 @@
 # julia-mizer-course
+
 Practical materials for Mizer Course 
 
-These are practical examples to accompany my presentations in the mizer course in Lysekil, Sweden Sept 6-7, 2019. 
-Very much work in progress at the moment!
+These are toy examples and files to accompany my "10 Tips" presentation in the mizer training workshop in Lysekil, Sweden Sept 6-7, 2019. 
+

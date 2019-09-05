@@ -1,0 +1,177 @@
+---
+title: "Toy Example #2: Modelling changes through time"
+author: Julia L. Blanchard
+date: 05/07/2019
+place: Lysekil Training Workshop, Sweden, Sept. 6-9, 2019
+output:
+  pdf_document: default
+  html_document: default
+  runtime: shiny
+---
+
+# Introduction 
+
+There are many emerging size spectrum modelling (including mizer) applications that aim to examine changes in time series through time. Depending on your question and the goals you have in mind for your model, it may even be worth fitting models to time series data. We may wish to discuss this later. A first step in exploration of ecosystem models with time series however, often starts by simply varying input or "forcing" parameters through time. 
+
+Here, we begin with the steady state or equilibrium model that has already been calibrated and evaluated. Presumably these get the model in the correct ball-park for each species time-average biomass, abundance, catches, growth etc. We then examine how different variables can "force"" the model away from the equilibrium state. Often a goal is being asked whether the forcing alone is enough to capture the trends in time series - e.g. fishing mortality, phytoplankton abundance, temperature  include examples that have been published.
+
+Aims of this practical: 
+1) Learn the main steps involved in forcing a size spectrum model
+2) Visually compare some of the model predictions with time-series data 
+3) Explore how post-hoc parameter changes can affect model skill through time
+
+
+We previously forced with fishing mortality time series using the North Sea model and there are examples for this in the mizer vignette. This model compared predictions to observations, but we did not capture directional environmental change (only noise in the realised recruitment). One potential issue with the deterministic version of the  model is related to the stock recruitment dynamics we assumed. First, we assumed an eRepro of 1 (which essentially ignores any losses of eggs, and assumes all eggs enter the size spectrum are available to be eaten and potentially grow). The second assumption was related to our values of Rmax. We calibrated the model to catches and biomass and estimated Rmax values (least known parameter). 
+
+PART A. Here we will explore the calibrated model and apply the dynamical forcing.
+
+Preliminary set up again... if needed.
+```{r}
+#get required packages
+library(devtools)
+#most up to date master branch of mizer
+#install_github("sizespectrum/mizer", ref = "master")
+#documentation here:
+#https://sizespectrum.org/mizer/dev/index.html
+library(mizer)
+library(tidyverse)
+
+```
+
+Let's read in the saved calibrated parameters of the North sea model stored in the mizer package. 
+
+```{r,warnings=F}
+#read saved params
+data(inter)
+params_dat<-read.csv("data/NSparams.csv")
+params_dat$gear<-params_dat$species
+params <- set_multispecies_model(params_dat,inter, kappa = 9.27e10)
+# run model to equilibrium and plot results
+sim <- project(params, effort = 1, t_max = 200, dt=0.1, dx=200)
+plot(sim)
+
+```
+
+If we agree the model has reached an equilibrium, we can take these equilibrium values (n form last timestep) and set up a dynamical run through time (a simlar example is also shown in the mizer vignette).
+
+```{r}
+
+#read in fishing mortality rate time series
+f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")[as.character(seq(1967,2010)),]
+
+#set up the effort time array as relative values to thes
+relative_effort <- sweep(f_history,2,f_history["1990",],"/")
+
+# include spin up period of 200 years as initial model was not calibrated for the year 1990 but a decadal time-average
+initial_effort <- matrix(relative_effort[1,],byrow=TRUE, nrow=200,
+    ncol=ncol(relative_effort), dimnames = list(1767:1966))
+relative_effort <- rbind(initial_effort,relative_effort)
+
+# run model
+simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
+
+# have a lok at the modelled yield
+plotlyYield(sim2)
+
+
+```
+
+You can zoom in to get a closer look at these in the forcing stage. Here, we are interested in examining the changes along side observations. Let's read in some observe landings for the North Sea and add these to our plot.
+
+```{r}
+# output modelled yields and reshape for plotting
+y <- getYield(simt)
+y <- reshape2::melt(y)
+
+#read in obsy yield values
+obsy <- read.csv("data/obslandings.csv")[,-1]
+
+# plot these
+ggplot(y) + geom_line(data=y, aes(x = time, y = log(value), 
+            colour = sp)) +
+      geom_point(data=obsy,aes(x = time, y = log(value), 
+            colour = sp),size=0.1) +
+    facet_wrap(~sp) +
+    scale_y_continuous(name = "log Yield [g/year]")  +
+    scale_colour_manual(values = sim@params@linecolour) +
+    xlim(1957, 2011)
+
+```
+
+The trends look kind of OK (except for Gurnard - where the data and knowledge of fishing mortality rates are poor). They are in line with our goals for model to pass through the cloud of points -  but this is a log-scale plot. Let's have a closer look at a particular species and use the less forgiving linear scale.
+
+```{r}
+# look only at Cod and examine on linear not log scale
+p<-ggplot(y) + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value, 
+            colour = sp)) +
+      geom_point(data=filter(obsy,sp=="Cod"),aes(x = time, y = value, 
+            colour = sp),size=0.6) +
+    #facet_wrap(~sp) +
+    scale_y_continuous(name = "Yield [g/year]")  +
+    scale_colour_manual(values = sim@params@linecolour) +
+    xlim(1957, 2011)
+p
+```
+
+As expected the linear scale deviations look a lot worse than log scale. ANd som eof the tredns are capture but not the fluctuations. This isn't really suprising, given that the only driver that is changing is fishing (and also the estimates of the fishing mortality rates come from single species stock assessments). Our goal was to cpature trends, hence the fact that the model passes through the data points was satisifying our expectations. 
+
+But we'd perhaps like much better agreement with data here. One issue could be that the Rmax values we previously estimated make the species much less reactive to fishing. Let's examine hpw sensitive the time series (and their visual agreement to data look when we change our assumptions about Rmax and also eRepro). You could use an RShiny app to do this interactively instead (see "app.R" which is a partially started example!).
+
+
+```{r}
+#increase Rmax of cod
+params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10
+
+#re-run model
+simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
+
+# output modelled yields and reshape for plotting
+y <- getYield(simt)
+y <- reshape2::melt(y)
+
+# again look only at Cod and examine on linear not log scale
+p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="red") 
+p
+
+#reduce Rmax of cod
+params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]/10
+
+#re-run model again...
+simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
+
+# output modelled yields and reshape for plotting
+y <- getYield(simt)
+y <- reshape2::melt(y)
+
+# again look only at Cod and examine on linear not log scale
+p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="red") 
+p
+
+
+```
+
+Questions: How do these trends differ in terms of the catch time series? What do the numbers in the smallest size class look like through time under these different parameters? 
+
+Remember we ignored erepro  (which means we asumed all eggs are available to be eaten and potnetially grow). This is often assumed to be a much smaller value. Explore the consequences of changing erpepro at very high (and perhaps very low values of Rmax). How would these different values influence the goodness of fit to data if we were to next use a time series fitting approach? What about the other species dynamics? 
+
+```{r}
+#increase/decrease Rmax of cod
+params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10 #REPLACE WITH YOUR VALUE HERE
+
+#reduce erepro of cod
+params@species_params$erepro[params@species_params$species=="Cod"] <- #YOUR VALUE HERE
+
+#re-run model again...
+simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
+
+# output modelled yields and reshape for plotting
+y <- getYield(simt)
+y <- reshape2::melt(y)
+
+# again look only at Cod and examine on linear not log scale
+p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="blue") 
+p
+```
+
+What happens to the visual "fit"? Feel free to explore a little further with your own questions. Then let's come back to the "tips" and our discussion session.
+
