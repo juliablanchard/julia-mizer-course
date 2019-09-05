@@ -1,0 +1,163 @@
+---
+title: "Toy Example #1: Confronting Size Spectrum Theory with Data"
+author: Julia L. Blanchard
+date: 05/07/2019
+place: Lysekil Training Workshop, Sweden, Sept. 6-9, 2019
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+# Introduction
+
+In this section of the workshop we will explore how we can learn about models by fitting size spectrum ecological models to data using the "mizer" R package. Later on, we will use previously "calibrated" model to explore whether forcing the model with time-varying input parameters is enough to capture some of the observed changes through time. 
+
+Recall, there are three different kinds of size spectrum models in mizer, of increasing complexity: 
+1) community model: purely size-based and representative of a single but  "average" species across the whole community 
+2) trait-based model, which disaggregates the size spectrum into differentgroups with different life-histories, through differences in each "species" asymptotic which determines
+other life-history parameters such as the size at maturity (Hartvig et al. 2011, Andersen & Pedersen, 2010)
+3) multispecies model - which has the same equations and parameters as the trait-based model but is parameterised to represent multiple species in a real system, where each species can have many differing species-specific traits (Blanchard et al. 2014). 
+
+ALthough in practice we are mainly focussed on calibrating multispecies models the same approach can be carried out with the other models. Actually since these are general approaches, they can be used with *any* deterministic mechanistic models. To start with though we will consider confronting the simplest model - the community model - with data on the community size spectrum (What is a size spectrum? See Ken's section!).
+
+## Part A - Fitting the community model to time-averaged size spectrum data
+
+```{r}
+#get required packages
+library(devtools)
+#most up to date master branch of mizer
+install_github("sizespectrum/mizer", ref = "master")
+#documentation here:
+#https://sizespectrum.org/mizer/dev/index.html
+library(mizer)
+require(tidyverse)
+```
+
+
+Let's read in some North Sea fish community size spectrum data sampled in 2000. These data are for a *normalised abundance size spectrum* and have been pre-processed to have the same size bins as the example mizer model output.
+
+
+```{r}
+
+#read in fish community size spectrum data for 2000
+css<-read.csv("data/commsizespectrum.csv",header=T)[,-1]
+
+#have a look at plot
+plot(css$logw,css$logden,xlab="log Weight class [g]", ylab=" log Number density")
+
+```
+
+The first question we will pose here is: How do we fit a simple community size spectrum model to community size spectrum data? To answer this we ask: What do the community size spectrum model parameters need to be to best capture observations of the community size spectrum? We will consider only two parameters - the level of fishing effort (here, simply a multiplier of fishing mortality rate) and the background resource carrying capacity which are known to affect the size spectrum.
+
+First let's set up the community size spectrum model and plot it.
+
+```{r}
+params <- set_community_model(knife_edge_size = 10)
+sim <- project(params, effort = 0, t_max = 100, dt=0.1, dx=200)
+plotSpectra(sim)
+```
+
+If we were happy with all of the input parameters we could simply compare the modelled size spectrum slopes and intercepts to the observed ones shown above. But instead  we are going to go a bit further  -  starting simple -  and run a range of parameter values, for *effort* and *kappa* to explore how these affect the fit to the data. 
+
+First, we want the model to be able to run over a range of parameters that we pass to it. 
+
+```{r}
+# set up function to run model and output the predicted size spectrum
+runmodel<-function(parms,initial_n=,initial_n_pp){# set up and run!
+params <- set_community_model(knife_edge_size = 10,kappa=parms$kappa)
+sim <- project(params, effort = parms$effort, t_max = 200, dt=0.1)
+
+# select last 10 years of output (should be time-averaged)
+# slope only
+# output<-mean(getCommunitySlope(sim,min_w=16,max_w=1600)[190:200,1])
+# or whole size spectrum
+output <-apply(sim@n,c(2,3),mean)
+return(output)
+}
+```
+
+We will interrogate the outputs that best "fit" the data. First we need to specify what we mean by our "best fit". We will use simple least squares regression and assess the sum of squared errors (SSE) between the observed and the modelled size spectra. We will select and examine the parameter set with the lowest SSE.
+
+```{r}
+# set up some initial parameters
+parms=data.frame(kappa=0.1,effort=1)
+
+# set up error function to compare predictions with observations (only need range of observations)
+sse <- function(parms,dat) {
+pred <- log(runmodel(parms)[which(params@w  >= 16 & params@w <= 20000)])
+# sum of squared errors, here on log-scale of predictions and data (can change this)
+discrep <- pred - dat
+return(sum(discrep^2))
+}
+err<-sse(parms,css$logden)
+#test
+err
+```
+
+We could skip ahead to  optimisation here to simply find the "best" single parameter values given the model and the data. Instead, to illustrate how this works and to examine the error surface, we will set up a simple grid of parameters. Because the models runs are not actually dependent on each other (they are sequential), we can also do this much more quickly with parallel computing. Have a chat with your neighbour.
+
+```{r}
+f <- function (par) {
+parms$kappa <- par[1]
+parms$effort <- par[2]  
+sse(parms,dat)
+}
+# two parameter grid
+kappa <- seq(from=0.05,to=0.1,by=0.05)
+effort <- seq(from=0,to=2,by=0.1)
+grid <- expand.grid(kappa=kappa,effort=effort)
+grid$SSE <- apply(grid,1,f)
+
+
+```
+
+Let's have a look at the error surface and extract the parameter set that gives the minimum error.
+
+```{r}
+# which level of effort has overall least error?
+effort.hat <- grid$effort[which.min(grid$SSE)]
+kappa.hat <- grid$kappa[which.min(grid$SSE)]
+# Basic scatterplot
+ggplot(grid, aes(x=effort, y=SSE,col=kappa) ) +
+  geom_point() 
+
+```
+
+What do these results suggest about the influence of kappa on the effects of fishing? 
+Next plug the effort.hat and kappa.hat values back into the model and plot the modelled and observed size spectra. How do these look compare to the original data?
+
+```{r}
+params <- set_community_model(knife_edge_size = 10,kappa=kappa.hat)
+sim <- project(params, effort = effort.hat, t_max = 100, dt=0.1)
+w <-dimnames(sim@n)$w
+n <-sim@n[100,,]
+plot(w,n,typ="l",xlim=c(16,20000),log="xy")
+#add the data to the plot
+points(exp(css$logw),exp(css$logden), col= "steel blue",cex=0.8,pch=16)
+
+```
+
+
+The gridded search is computationally very expensive to run for all potential parameters ranges and values, but many optimisation methods exist as a short cut. How do the above minima compare with the estimated parameters from optimisation? Here we can use optim, with some upper and lower bounds on the canditate parameter values. Has the optimisation converged to what you might expect? What happens if you change the error function?
+
+```{r}
+#optimisation
+vals<-optim(par=c(0.1,0.1),f,method ="L-BFGS-B",lower=c(1e-3,0),upper =c(1,3))
+
+#plug these ones back into model and compare
+params <- set_community_model(knife_edge_size = 10,kappa=vals$par[1])
+sim <- project(params, effort = vals$par[2], t_max = 100, dt=0.1)
+w <-dimnames(sim@n)$w
+n <-sim@n[100,,]
+
+#redo the plot
+plot(w,n,typ="l",xlim=c(16,20000),log="xy")
+points(exp(css$logw),exp(css$logden), col= "steel blue",cex=0.8,pch=16)
+
+
+```
+
+## Questions:
+
+Is it a good enough fit?  What are the issues if we vary different parameters and/or include more parameters to estimate? Optimisation doesn't always work. Let's go back to the "tips" presentation and we can discuss some alternative options.
