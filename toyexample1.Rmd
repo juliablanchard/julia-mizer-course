@@ -150,9 +150,9 @@ params <- set_community_model(knife_edge_size = 10,kappa=vals$par[1])
 sim <- project(params, effort = vals$par[2], t_max = 100, dt=0.1)
 w <-dimnames(sim@n)$w
 n <-sim@n[100,,]
-plot(w,n,typ="l",xlim=c(16,20000),log="xy")
 
 #redo the plot
+plot(w,n,typ="l",xlim=c(16,20000),log="xy")
 points(exp(css$logw),exp(css$logden), col= "steel blue",cex=0.8,pch=16)
 
 
@@ -160,4 +160,4 @@ points(exp(css$logw),exp(css$logden), col= "steel blue",cex=0.8,pch=16)
 
 ## Questions:
 
-Is it a good enough fit? What happens if we vary different parameters values and/or include more parameters to estimate? After you explore these a bit, let's go back to the "tips" presentation and we can discuss some alternative options.
+Is it a good enough fit?  What are the issues if we vary different parameters and/or include more parameters to estimate? Optimisation doesn't always work. Let's go back to the "tips" presentation and we can discuss some alternative options.
