@@ -56,6 +56,7 @@ First let's set up the community size spectrum model and plot it.
 params <- set_community_model(knife_edge_size = 10)
 sim <- project(params, effort = 0, t_max = 100, dt=0.1, dx=200)
 plotSpectra(sim)
+
 ```
 
 If we were happy with all of the input parameters we could simply compare the modelled size spectrum slopes and intercepts to the observed ones shown above. But instead  we are going to go a bit further  -  starting simple -  and run a range of parameter values, for *effort* and *kappa* to explore how these affect the fit to the data. 
@@ -64,10 +65,11 @@ First, we want the model to be able to run over a range of parameters that we pa
 
 ```{r}
 # set up function to run model and output the predicted size spectrum
-runmodel<-function(parms,initial_n=,initial_n_pp){# set up and run!
+
+runmodel<-function(parms){# set up and run!
 params <- set_community_model(knife_edge_size = 10,kappa=parms$kappa)
 sim <- project(params, effort = parms$effort, t_max = 200, dt=0.1)
-
+# normally we would want to pass updated equilibirum values as initial_n and initial_n_pp here, rather than running from initial values each time, but doesn't matter too much for this example
 # select last 10 years of output (should be time-averaged)
 # slope only
 # output<-mean(getCommunitySlope(sim,min_w=16,max_w=1600)[190:200,1])
@@ -98,7 +100,7 @@ err
 We could skip ahead to  optimisation here to simply find the "best" single parameter values given the model and the data. Instead, to illustrate how this works and to examine the error surface, we will set up a simple grid of parameters. Because the models runs are not actually dependent on each other (they are sequential), we can also do this much more quickly with parallel computing. Have a chat with your neighbour.
 
 ```{r}
-f <- function (par) {
+f <- function (par,dat=css$logden) {
 parms$kappa <- par[1]
 parms$effort <- par[2]  
 sse(parms,dat)
@@ -160,4 +162,4 @@ points(exp(css$logw),exp(css$logden), col= "steel blue",cex=0.8,pch=16)
 
 ## Questions:
 
-Is it a good enough fit?  What are the issues if we vary different parameters and/or include more parameters to estimate? Optimisation doesn't always work. Let's go back to the "tips" presentation and we can discuss some alternative options.
+Is it a good enough fit?  What happens if we vary different parameters and/or include more parameters to estimate? Optimisation doesn't always work. Let's go back to the "tips" presentation and we can discuss some alternative options.
