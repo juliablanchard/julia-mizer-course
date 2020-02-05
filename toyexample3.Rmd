@@ -15,7 +15,7 @@ In this section of the workshop we will continue exploring how we can learn abou
 
 To begin with we will use the scaling model - which assumes eggs sizes are notthe same and might be a good representation of a background zooplankton + fish community.
 
-## Part A - The scaling model
+## The scaling model
 
 ```{r}
 #get required packages
@@ -188,83 +188,74 @@ plotSpectra(new.mf)
 tuneParams(params)
 ```
 
+####### Calibration #######
 
+Rather than manulaly tune the parameters we will try to automatically calibrate the model with data and estimate our uncertain parameters. We are particularly uncertian about: kappa ( the satellite data used as  inputs does not appear to be enough to keep the zooplankton  grooups alive), Rmax( this will influence the biomass of each group) Here, we will use an inverse calibraion where we have population level biomass density data for 6 of the marine mammal and seabird groups (obtained from the inputs for an EcoPath model). 
 
-The next code chunks need to be checked and correcterto do an optimisation
 
 ```{r}
-# set up function to run model and output the predicted size spectrum
+# Step 0. Set up function to run model and output the predicted log biomasses
 
-runmodel<-function(parms){# set up and run!
-params <- set_community_model(knife_edge_size = 10,kappa=parms$kappa)
-sim <- project(params, effort = parms$effort, t_max = 200, dt=0.1)
-# normally we would want to pass updated equilibirum values as initial_n and initial_n_pp here, rather than running from initial values each time, but doesn't matter too much for this example
-# select last 10 years of output (should be time-averaged)
-# slope only
-# output<-mean(getCommunitySlope(sim,min_w=16,max_w=1600)[190:200,1])
-# or whole size spectrum
-output <-apply(sim@n,c(2,3),mean)
-return(output)
+runmodel<-function(theta,parms,delta_t=0.1){# set up and run!
+# change the paramters values that we want to estimate/calibrate
+parms$R_max<- exp(theta[1:13])
+parms$erepro <- exp(theta[14:26])
+# Mike: what this step below for eRepro?
+#parms$erepro <- inv_logit(theta[14:26])
+kappa <- theta[27]
+parms<-newMultispeciesParams(parms,kappa=kappa)
+sim<- project(parms,dt=delta_t,t_max = 100)
+# output the biomass denisty in terms of tonnes per km2
+# assume model is set up for an area of 1km2
+# this will output the biomass at last time step - do we need a time-average?
+sim_logbiomass<-log(getBiomass(sim)[dim(sim@n)[1],]) - log(1e6)
+return(sim_logbiomass)
+# do we also want to pass the equilibrium n and n_pp from last iteration?
 }
+#test-run
+parms <-params@species_params
+theta <- c(params@species_params$R_max,params@species_params$erepro,100)
+runmodel(theta = theta,parms=parms)
+```
+
+
+
+```{r}
+## Step 1. generate parameter sets to sample and plug in to model
+library(randtoolbox)
+#### generate Round  1
+theta <- sobol(n = 20000, dim = 27)
+for(i in 1:13){
+  # Rmax
+  theta[,i] <- c(10,10,14,18,12,10,14,15)+ theta[,i] * c(20,19,16,13,18,20,16,15)
+}
+  #erepro
+for(i in 14:26){
+  theta[,i] <-  inv.logit(-5 + theta[,i] * 5)
+}
+ #kappa
+theta[,27] <- 5 + theta[,27] * 25
+```
+
+
+
+
+
+```{r}
+#### Run Model (could set up on cluster, but nice to have prgress bar)
+
+library(pbapply)
+round_1 <-  pbapply(theta,1,runmodel, parms)
+save(theta,round_1,file="data/round1.Rdata")
 
 ```
 
 ```{r}
-# set up some initial parameters
-parms=data.frame(kappa=0.1,effort=1)
-
 # set up error function to compare predictions with observations (only need range of observations)
-sse <- function(parms,dat) {
-pred <- log(runmodel(parms)[which(params@w  >= 16 & params@w <= 20000)])
-# sum of squared errors, here on log-scale of predictions and data (can change this)
-discrep <- pred - dat
-return(sum(discrep^2))
-}
-err<-sse(parms,css$logden)
-#test
-err
-
-```
-
-```{r}
-f <- function (par,dat=css$logden) {
-parms$kappa <- par[1]
-parms$effort <- par[2]  
-sse(parms,dat)
-}
-# two parameter grid
-kappa <- seq(from=0.05,to=0.1,by=0.05)
-effort <- seq(from=0,to=2,by=0.1)
-grid <- expand.grid(kappa=kappa,effort=effort)
-grid$SSE <- apply(grid,1,f)
-
-```
-
-
-```{r}
-# which level of effort has overall least error?
-effort.hat <- grid$effort[which.min(grid$SSE)]
-kappa.hat <- grid$kappa[which.min(grid$SSE)]
-# Basic scatterplot
-ggplot(grid, aes(x=effort, y=SSE,col=kappa) ) +
-  geom_point() 
-
-```
-
-```{r}
-#optimisation
-vals<-optim(par=c(0.1,0.1),f,method ="L-BFGS-B",lower=c(1e-3,0),upper =c(1,3))
-
-#plug these ones back into model and compare
-params <- set_community_model(knife_edge_size = 10,kappa=vals$par[1])
-sim <- project(params, effort = vals$par[2], t_max = 100, dt=0.1)
-w <-dimnames(sim@n)$w
-n <-sim@n[100,,]
-
-#redo the plot
-plot(w,n,typ="l",xlim=c(16,20000),log="xy")
-points(exp(css$logw),exp(css$logden), col= "steel blue",cex=0.8,pch=16)
+## Calculate the difference between the simulated catches and the observations. plot the results
+difs<- pbsapply(1:nrow(theta),function(x){colSums((matrix(round_1[,x],ncol=8) - log(catch[,-1]))^2,na.rm=T)})
 
 
 ```
+
 
