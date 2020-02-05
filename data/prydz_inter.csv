@@ -1,0 +1,15 @@
+,microzooplankton,mesozooplankton,macrozooplankton,mesopelagic.fishes,jellies,bathypelagic.fishes,flying.birds,small.divers,squids,shelf.and.coastal.fishes,medium.divers,apex.predators,large.divers,baleen.whales
+microzooplankton,0,1,1,1,1,0,0,0,0,0,0,0,0,0
+mesozooplankton,1,0,1,1,1,0,0,0,0,0,0,0,0,0
+macrozooplankton,1,1,0,1,1,0,0,0,0,0,0,0,0,0
+mesopelagic.fishes,1,1,1,1,1,0,0,0,0,0,0,0,0,0
+jellies,1,1,1,1,1,0,0,0,0,0,0,0,0,0
+bathypelagic.fishes,1,1,1,1,1,1,0,0,0.5,0.1,0,0,0,0
+flying.birds,0.0125,0.0125,0.0125,0.0125,0.0125,0.0125,0,0,0.0125,0.0025,0,0,0,0
+small.divers,0.025,0.025,0.025,0.025,0.025,0.025,0,0,0.025,0.005,0,0,0,0
+squids,1,1,1,0.5,1,0.5,0,0,1,0.2,0,0,0,0
+shelf.and.coastal.fishes,0.2,0.2,0.2,0.1,0.2,0.1,0,0,0.2,1,0,0,0,0
+medium.divers,0.375,0.375,0.375,0.375,0.375,0.375,0,0,0.375,0.075,0,0,0,0
+apex.predators,0.05,0.05,0.05,0.05,0.05,0.05,0,1,0.05,0.01,0.533333333,1,0.4,1
+large.divers,0.5,0.5,0.5,0.5,0.5,0.5,0,0,0.5,0.1,0,0,0,0
+baleen.whales,0.05,0.05,0.05,0.05,0.05,0.05,0,0,0.05,0.01,0,0,0,0

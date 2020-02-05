@@ -1,0 +1,13 @@
+﻿species,group,b domain mean tkm2,b domain upper,b domain lower
+Orca,apex predators,0.00605,0.0069,0.0052
+Adelie Penguin,small divers,0.01558,0.01558,0.0178
+Crabeater Seals,medium divers,0.206,0.275,0.138
+Elephant Seals,large divers,0.0111,0.0207,0.008
+Emperor Penguin,medium divers,0.003195,NA,NA
+flying birds,flying birds,0.003451,NA,NA
+Leopard Seals,apex predators,0.002196,0.004462,0.00115
+minke whale,baleen whales,0.01441,0.0154,0.01342
+Ross Seals,medium divers,0.005,0.005,0.0044
+baleen whales,baleen whales,0.12712,0.20321,0.03114
+Sperm Whales,large divers,0.0108,0.0108,0.00675
+Weddell Seals,medium divers,0.0448,0.0692,0.0204

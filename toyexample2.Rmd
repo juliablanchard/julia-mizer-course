@@ -49,6 +49,9 @@ params <- set_multispecies_model(params_dat,inter, kappa = 9.27e10)
 # run model to equilibrium and plot results
 sim <- project(params, effort = 1, t_max = 200, dt=0.1, dx=200)
 plot(sim)
+sim@params
+saveRDS(sim@params,"nsea_params.RDS")
+readRDS("nsea_params.RDS")
 
 ```
 
@@ -159,7 +162,7 @@ Remember we ignored erepro  (which means we asumed all eggs are available to be 
 params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10 #REPLACE WITH YOUR VALUE HERE
 
 #reduce erepro of cod
-params@species_params$erepro[params@species_params$species=="Cod"] <- 0.001 #YOUR VALUE HERE
+params@species_params$erepro[params@species_params$species=="Cod"] <- 0.0005 #YOUR VALUE HERE
 
 #re-run model again...
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
