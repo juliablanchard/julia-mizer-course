@@ -96,22 +96,22 @@ Clearly, the community isn't providing enough food for baleen whales. Let's have
 
 ```{r}
 #read groups for southern ocean model
-groups<-readRDS("data/groups.RDS")
+groups<-readRDS("data/groups.RDS")[-1,]
 #fix one value 
-groups[7,"w_min"]<-4000
+#groups[7,"w_min"]<-4000
 # read interaction matrix
 # get the interaction matrix
-theta <- readRDS("data/prydz_inter.RDS")
+theta <- readRDS("data/prydz_inter.RDS")[-1,-1]
 
 
-mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e40,min_w_pp = 1e-16,lambda = 1.75)
+mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e8,min_w_pp = 1e-16,w_pp_cutoff = 100,r_pp = 20 )
 # mf.params@species_params$R_max <- 0.000001*mf.params@species_params$R_max
 # mf.params@species_params$h[] <- mean(mf.params@species_params$h)
 # mf.params@species_params$gamma[] <- mean(mf.params@species_params$gamma)
 # mf.params@species_params$beta[1] <- 1e10
 # mf.params@species_params$w_mat25[1] <- 0.005*mf.params@species_params$w_inf[1]
 # mf.params@species_params$erepro[] <- 1
-
+mf.params@interaction[1,1] <-1
 sim <- project(mf.params, t_max=100)
 plot(sim)
 plotlyGrowthCurves(sim,percentage = T)
@@ -132,25 +132,25 @@ simbio<-as.data.frame(merge(simbio,dat,by.x="species",by.y="group",all=T))
 plot(simbio$w_inf,simbio$simbio,xlab="log Maximum Weight [g]", ylab=" log Total Biomass", log="xy",col="grey",pch=16)
 points(simbio$w_inf,simbio$biomass.tperkm2,col="blue",pch=1)
 text(simbio$w_inf,simbio$simbio,labels=simbio$species,cex=0.5)
-
-
-## have a look at paramters - metabolism
-plot(mf.params@species_params$w_inf,mf.params@species_params$ks,log="x")
-text(mf.params@species_params$w_inf,mf.params@species_params$ks,labels=params@species_params$species,cex=0.5)
-
-## have a look at paramters - h
-plot(mf.params@species_params$w_inf,mf.params@species_params$h,log="x")
-text(mf.params@species_params$w_inf,mf.params@species_params$h,labels=params@species_params$species,cex=0.5)
-
-## have a look at paramters - gamma
-plot(mf.params@species_params$w_inf,mf.params@species_params$gamma,log="xy")
-text(mf.params@species_params$w_inf,mf.params@species_params$gamma,labels=params@species_params$species,cex=0.5)
-
-
-## have a look at paramters - wmat/winf
-plot(mf.params@species_params$w_inf,mf.params@species_params$w_mat25/mf.params@species_params$w_inf,log="xy")
-text(mf.params@species_params$w_inf,mf.params@species_params$w_mat25/mf.params@species_params$w_inf,labels=params@species_params$species,cex=0.5)
-
+# 
+# 
+# ## have a look at paramters - metabolism
+# plot(mf.params@species_params$w_inf,mf.params@species_params$ks,log="x")
+# text(mf.params@species_params$w_inf,mf.params@species_params$ks,labels=params@species_params$species,cex=0.5)
+# 
+# ## have a look at paramters - h
+# plot(mf.params@species_params$w_inf,mf.params@species_params$h,log="x")
+# text(mf.params@species_params$w_inf,mf.params@species_params$h,labels=params@species_params$species,cex=0.5)
+# 
+# ## have a look at paramters - gamma
+# plot(mf.params@species_params$w_inf,mf.params@species_params$gamma,log="xy")
+# text(mf.params@species_params$w_inf,mf.params@species_params$gamma,labels=params@species_params$species,cex=0.5)
+# 
+# 
+# ## have a look at paramters - wmat/winf
+# plot(mf.params@species_params$w_inf,mf.params@species_params$w_mat25/mf.params@species_params$w_inf,log="xy")
+# text(mf.params@species_params$w_inf,mf.params@species_params$w_mat25/mf.params@species_params$w_inf,labels=params@species_params$species,cex=0.5)
+# 
 
 ```
 
