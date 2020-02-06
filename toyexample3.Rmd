@@ -76,9 +76,7 @@ species_params <- data.frame(
     knife_edge_size = 100, 
     gear = "knife_edge_gear",
     k = 0,
-    k_vb = 0.2,
-    a = a_m,
-    b = b_m
+    k_vb = 0.2
 )
 params <- addSpecies(params, species_params)
 plotSpectra(params)
@@ -88,7 +86,7 @@ plotBiomass(sim)
 ```
 
 
-We will now use the Rshiny app to explore the effects of parameters values on steady state.
+We could use the Rshiny app to explore the effects of parameters values on steady state.
 
 ```{r}
 tuneParams(params)
@@ -105,11 +103,54 @@ groups[7,"w_min"]<-4000
 # get the interaction matrix
 theta <- readRDS("data/prydz_inter.RDS")
 
-mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6)
-plotSpectra(mf.params)
+
+mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e40,min_w_pp = 1e-16,lambda = 1.75)
+# mf.params@species_params$R_max <- 0.000001*mf.params@species_params$R_max
+# mf.params@species_params$h[] <- mean(mf.params@species_params$h)
+# mf.params@species_params$gamma[] <- mean(mf.params@species_params$gamma)
+# mf.params@species_params$beta[1] <- 1e10
+# mf.params@species_params$w_mat25[1] <- 0.005*mf.params@species_params$w_inf[1]
+# mf.params@species_params$erepro[] <- 1
+
 sim <- project(mf.params, t_max=100)
-plotBiomass(sim)
-plotSpectra(sim)
+plot(sim)
+plotlyGrowthCurves(sim,percentage = T)
+# they are not growing enough,why?
+```
+
+
+```{r}
+# get biomass and covert to tonnes per area
+simbio<-getBiomass(sim)
+simbio<-data.frame(species=mf.params@species_params$species,w_inf=mf.params@species_params$w_inf,simbio=simbio[100,]/1e6)
+
+#read in data for prydz bay
+dat<-read.csv("data/pred_group_biomasses.csv",header=T)
+simbio<-as.data.frame(merge(simbio,dat,by.x="species",by.y="group",all=T))
+
+#have a look at plot with both modelled total biomass and observed for top predators
+plot(simbio$w_inf,simbio$simbio,xlab="log Maximum Weight [g]", ylab=" log Total Biomass", log="xy",col="grey",pch=16)
+points(simbio$w_inf,simbio$biomass.tperkm2,col="blue",pch=1)
+text(simbio$w_inf,simbio$simbio,labels=simbio$species,cex=0.5)
+
+
+## have a look at paramters - metabolism
+plot(mf.params@species_params$w_inf,mf.params@species_params$ks,log="x")
+text(mf.params@species_params$w_inf,mf.params@species_params$ks,labels=params@species_params$species,cex=0.5)
+
+## have a look at paramters - h
+plot(mf.params@species_params$w_inf,mf.params@species_params$h,log="x")
+text(mf.params@species_params$w_inf,mf.params@species_params$h,labels=params@species_params$species,cex=0.5)
+
+## have a look at paramters - gamma
+plot(mf.params@species_params$w_inf,mf.params@species_params$gamma,log="xy")
+text(mf.params@species_params$w_inf,mf.params@species_params$gamma,labels=params@species_params$species,cex=0.5)
+
+
+## have a look at paramters - wmat/winf
+plot(mf.params@species_params$w_inf,mf.params@species_params$w_mat25/mf.params@species_params$w_inf,log="xy")
+text(mf.params@species_params$w_inf,mf.params@species_params$w_mat25/mf.params@species_params$w_inf,labels=params@species_params$species,cex=0.5)
+
 
 ```
 
@@ -143,7 +184,7 @@ for (i in 1:length(mvals)) {
 ####### psi function
   
   # Change allocation to reproduction = check for endotherms/determinate growers (should be 1 at wmat not winf)
- psi_r=5
+ psi_r=20
  params@psi[] <- unlist(tapply(params@w,1:length(params@w),function(wx,Winf,Wmat,n){
    ((1 + (wx/(Wmat))^-psi_r)^-1) * (wx/Winf)^(1-n)},Winf=params@species_params$w_inf,Wmat=params@species_params$w_mat,n=params@n))
 # # Set w < 1% of Wmat to 0
@@ -172,13 +213,13 @@ Let's take a look.
   
 params<- setPredKernel(params, pred_kernel = pred_kern)
 params@kappa <-100
-params <- steady(params)
+#params <- steady(params)
 
 new.mf<-project(params,t_max=100)
 plotBiomass(sim)
 plotBiomass(new.mf)
 
-plotSpectra(new.mf)
+plot(new.mf)
      
 # that went a little funny
   
