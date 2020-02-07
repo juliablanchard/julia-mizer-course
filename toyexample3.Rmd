@@ -21,7 +21,7 @@ To begin with we will use the scaling model - which assumes eggs sizes are notth
 #get required packages
 library(devtools)
 #most up to date master branch of mizer
-install_github("sizespectrum/mizer")
+#install_github("sizespectrum/mizer")
 #documentation here:
 #https://sizespectrum.org/mizer/dev/index.html
 library(mizer)
@@ -58,6 +58,7 @@ plotSpectra(params)
 sim <- project(params, t_max=100)
 plotBiomass(sim)
 
+
 ```
 
 Now we see the size distributions of the background community, we would like to add a species to the foreground. Let's go with a big one! 
@@ -92,21 +93,26 @@ We could use the Rshiny app to explore the effects of parameters values on stead
 tuneParams(params)
 ```
 
+
+## Multispecies (functional group) Southern Ocean Model
+
 Clearly, the community isn't providing enough food for baleen whales. Let's have a look at the parameters we've put together for a Southern Ocean ecosystem.
 
 ```{r}
 #read groups for southern ocean model
 groups<-readRDS("data/groups.RDS")[-1,]
+#[-1,]
 #fix one value 
 #groups[7,"w_min"]<-4000
 # read interaction matrix
 # get the interaction matrix
 theta <- readRDS("data/prydz_inter.RDS")[-1,-1]
+#[-1,-1]
 
+mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e8,min_w_pp = 1e-16,w_pp_cutoff = 100,r_pp = 2)
 
-mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e8,min_w_pp = 1e-16,w_pp_cutoff = 100,r_pp = 2 )
- mf.params@species_params$R_max[1] <-Inf
-  mf.params@species_params$ks <-1
+# mf.params@species_params$R_max[1] <-Inf
+# mf.params@species_params$metab[1] <-0.01
 # mf.params@species_params$h[] <- mean(mf.params@species_params$h)
 # mf.params@species_params$gamma[1] <- 10*(mf.params@species_params$gamma[1])
 # mf.params@species_params$alpha[1] <- 0.8
@@ -116,10 +122,10 @@ mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3
  # mf.params@species_params$beta[1] <- 1e10
 # mf.params@species_params$w_mat25[1] <- 0.005*mf.params@species_params$w_inf[1]
 # mf.params@species_params$erepro[] <- 1
-mf.params@interaction[1,1] <-0.2
+mf.params@interaction[1,1] <-0.5
 sim <- project(mf.params, t_max=100)
 plot(sim)
-plotlyGrowthCurves(sim,percentage = T)
+#plotlyGrowthCurves(sim,percentage = T,species="macrozooplankton")
 plotlyFeedingLevel(sim)
 # macrozooplankton - they are not growing enough,why?
 ```
@@ -134,7 +140,7 @@ simbio<-data.frame(species=mf.params@species_params$species,w_inf=mf.params@spec
 simbio<-as.data.frame(merge(simbio,dat,by.x="species",by.y="group",all=T))
 
 #have a look at plot with both modelled total biomass and observed for top predators
-plot(simbio$w_inf,simbio$simbio,xlab="log Maximum Weight [g]", ylab=" log Total Biomass", log="xy",col="grey",pch=16)
+plot(simbio$w_inf,simbio$simbio,xlab="log Maximum Weight [g]", ylab=" log Total Biomass", log="xy",col="grey",pch=16,ylim=c(1e-20,0.5))
 points(simbio$w_inf,simbio$biomass.tperkm2,col="blue",pch=1)
 text(simbio$w_inf,simbio$simbio,labels=simbio$species,cex=0.5)
 
@@ -226,8 +232,7 @@ kappa = 1e30
 params@species_params$repro_prop <- 0.8
 params@species_params$erepro <- ifelse(params@species_params$erepro==1,0.001,params@species_params$erepro)
 new.mf<-project(params,t_max=500,kappa=kappa)
-plotBiomass(sim)
-plotBiomass(new.mf)
+params@interaction[]<- 0.1
 
 plot(new.mf)
 plotBioData(new.mf,dat)
@@ -306,7 +311,7 @@ save(theta,round_1,file="data/round1.Rdata")
 # set up error function to compare predictions with observations (only need range of observations)
 ## Calculate the difference between the simulated catches and the observations. plot the results
 load("data/round1.Rdata")
-difs<- pbsapply(1:nrow(theta),function(x){colSums((matrix(round_1[,x],ncol=8) - log(catch[,-1]))^2,na.rm=T)})
+difs<- pbsapply(1:nrow(theta),function(x){colSums((matrix(round_1[,x],ncol=8) - log(dat[,-1]))^2,na.rm=T)})
 
 
 ```
