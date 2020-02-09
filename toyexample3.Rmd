@@ -22,6 +22,7 @@ To begin with we will use the scaling model - which assumes eggs sizes are notth
 library(devtools)
 #most up to date master branch of mizer
 #install_github("sizespectrum/mizer")
+#install_github("astaaudzi/mizer-rewiring", ref = "temp-model-comp")
 #documentation here:
 #https://sizespectrum.org/mizer/dev/index.html
 library(mizer)
@@ -56,7 +57,7 @@ The first question we will pose here is: How do we fit a simple community size s
 First let's set up the scaling model and plot it.
 
 ```{r}
-params <- newTraitParams(max_w_inf = 1e+09)
+params <- newTraitParams(max_w_inf = 1e+09,egg_size_scaling = T)
 params <- markBackground(params) 
 plotSpectra(params)
 sim <- project(params, t_max=100)
@@ -117,33 +118,40 @@ theta <- readRDS("data/prydz_inter.RDS")[-1,-1]
 
 
   
-mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e8,min_w_pp = 1e-16,w_pp_cutoff = 100,r_pp = 2)
+mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e3,min_w_pp = 1e-16,w_pp_cutoff = 10,r_pp = 10,z0pre = 0.1)
 
 # mf.params@species_params$metab[1] <-0.01
-# mf.params@species_params$h[] <- mean(mf.params@species_params$h)
+mf.params@species_params$h[10] <- mf.params@species_params$h[10]*10
+
 # mf.params@species_params$gamma[1] <- 1000*(mf.params@species_params$gamma[1])
-# mf.params@species_params$alpha[1] <- 0.8
- #mf.params@species_params$z0[1] <- 0.0
+mf.params@species_params$alpha[] <- 0.6
+mf.params@species_params$z0[1] <- 0.01
  #mf.params@species_params$sigma[1] <-3
  #mf.params@species_params$beta[1] <-10
  # mf.params@species_params$beta[1] <- 1e10
 # mf.params@species_params$w_mat25[1] <- 0.005*mf.params@species_params$w_inf[1]
-# mf.params@species_params$erepro[] <- 1
+mf.params@species_params$erepro <- ifelse(mf.params@species_params$erepro==1,0.001,mf.params@species_params$erepro)
 # mf.params@interaction[] <-0.1
+#mf.params@interaction[,1] <-0
+#mf.params@interaction[1,1] <-1
 
- mf.params@interaction[1,1] <-0.5
+#mf.params@species_params$interaction_p[2:11] <-0.5
+
 # mf.params@species_params$w_mat <- 0.5*mf.params@species_params$w_inf
 # mf.params@species_params$w_mat[mf.params@species_params$species == "flying.birds"] <- 0.75*mf.params@species_params$w_inf[mf.params@species_params$species == "flying.birds"]
 # mf.params@species_params$w_mat[mf.params@species_params$species == "small.divers"] <- 0.75*mf.params@species_params$w_inf[mf.params@species_params$species == "small.divers"]
 # mf.params@species_params$w_mat[mf.params@species_params$species == "medium.divers"] <- 0.75*mf.params@species_params$w_inf[mf.params@species_params$species == "medium.divers"]
 # mf.params@species_params$w_mat[10:12] <- 0.75*mf.params@species_params$w_inf[10:12]
 # setParams(mf.params)
-# 
+
+mf.params<- setParams(mf.params,kappa=1e3)
 sim <- project(mf.params, t_max=100)
 plot(sim)
-#plotlyGrowthCurves(sim,percentage = T,species="macrozooplankton")
+getFeedingLevel(sim)
+#plotlyGrowthCurves(sim,species="macrozooplankton")
 plotlyFeedingLevel(sim)
 # macrozooplankton - they are not growing enough,why?
+#tuneParams(mf.params)
 ```
 
 
@@ -170,17 +178,17 @@ plotBioData(sim,dat)
 # text(mf.params@species_params$w_inf,mf.params@species_params$ks,labels=params@species_params$species,cex=0.5)
 # 
 # ## have a look at paramters - h
-plot(mf.params@species_params$w_inf,mf.params@species_params$h,log="x")
-text(mf.params@species_params$w_inf,mf.params@species_params$h,labels=params@species_params$species,cex=0.5)
-# 
-# ## have a look at paramters - gamma
- plot(mf.params@species_params$w_inf,mf.params@species_params$gamma,log="xy")
- text(mf.params@species_params$w_inf,mf.params@species_params$gamma,labels=params@species_params$species,cex=0.5)
-# 
-# 
-# ## have a look at paramters - wmat/winf
- plot(mf.params@species_params$w_inf,mf.params@species_params$w_mat/mf.params@species_params$w_inf,log="xy",xlab=c("Weight"),y=c("Wmat/Winf"))
- text(mf.params@species_params$w_inf,mf.params@species_params$w_mat/mf.params@species_params$w_inf,labels=params@species_params$species,cex=0.5)
+# plot(mf.params@species_params$w_inf,mf.params@species_params$h,log="x")
+# text(mf.params@species_params$w_inf,mf.params@species_params$h,labels=params@species_params$species,cex=0.5)
+# # 
+# # ## have a look at paramters - gamma
+#  plot(mf.params@species_params$w_inf,mf.params@species_params$gamma,log="xy")
+#  text(mf.params@species_params$w_inf,mf.params@species_params$gamma,labels=params@species_params$species,cex=0.5)
+# # 
+# # 
+# # ## have a look at paramters - wmat/winf
+#  plot(mf.params@species_params$w_inf,mf.params@species_params$w_mat/mf.params@species_params$w_inf,log="xy",xlab=c("Weight"),y=c("Wmat/Winf"))
+#  text(mf.params@species_params$w_inf,mf.params@species_params$w_mat/mf.params@species_params$w_inf,labels=params@species_params$species,cex=0.5)
  
 # changes need to maturation sizes - zoop groups -> wmat 50% of winf
 ```
@@ -243,13 +251,6 @@ Let's take a look.
 ```{r}
   
 params<- setPredKernel(params, pred_kernel = pred_kern)
-# kappa = 1e30
-# #params@species_params$R_max[1] <- Inf
-# params@species_params$repro_prop <- 0.8
-params@species_params$erepro <- ifelse(params@species_params$erepro==1,0.001,params@species_params$erepro)
-#params@interaction[]<- 0.1
-params@species_params$ks[1]<-0.5*params@species_params$ks[1]
-
 
 new.mf<-project(params,t_max=500)
 plot(new.mf)
