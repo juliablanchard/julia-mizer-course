@@ -131,6 +131,8 @@ mf.params@species_params$z0[1] <- 0.01
  # mf.params@species_params$beta[1] <- 1e10
 # mf.params@species_params$w_mat25[1] <- 0.005*mf.params@species_params$w_inf[1]
 mf.params@species_params$erepro <- ifelse(mf.params@species_params$erepro==1,0.001,mf.params@species_params$erepro)
+mf.params@species_params$R_max <- mf.params@species_params$R_max*10
+
 # mf.params@interaction[] <-0.1
 #mf.params@interaction[,1] <-0
 #mf.params@interaction[1,1] <-1
@@ -144,7 +146,7 @@ mf.params@species_params$erepro <- ifelse(mf.params@species_params$erepro==1,0.0
 # mf.params@species_params$w_mat[10:12] <- 0.75*mf.params@species_params$w_inf[10:12]
 # setParams(mf.params)
 
-mf.params<- setParams(mf.params,kappa=1e3)
+mf.params<- setParams(mf.params,kappa=5e3)
 sim <- project(mf.params, t_max=100)
 plot(sim)
 getFeedingLevel(sim)
