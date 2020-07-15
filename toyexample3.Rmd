@@ -58,8 +58,13 @@ Next let's read in the parameters we've put together for a Southern Ocean (Prydz
 
 ```{r}
 #read groups for southern ocean model
-groups<-read.csv("data/groups.csv")
-groups<-groups[-1,]
+groups<-read.csv("data/groups2.csv")[-1,]
+
+#groups <- readRDS("data/groups.RDS")[-1,]
+#check fails these tests:
+groups$w_mat25 >= groups$w_mat 
+groups$w_mat25 <= groups$w_min
+groups$w_inf <= groups$w_mat25
 
 #[-1,]
 #fix one value 
@@ -76,7 +81,7 @@ We will pass these parameters to mizer to set up a new multispecies model.
 
 ```{r}
  
-mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,n=2/3,p=0.7,q=0.8,f=0.6,kappa = 1e3,min_w_pp = 1e-16,w_pp_cutoff = 10,r_pp = 10,z0pre = 0.1)
+mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,kappa = 1e3,min_w_pp = 1e-16,w_pp_cutoff = 1,r_pp = 10,z0pre = 0.1)
 
 # mf.params@species_params$metab[1] <-0.01
 mf.params@species_params$h[] <- 10*mf.params@species_params$ks[] 
@@ -165,7 +170,7 @@ plotBioData(sim,dat)
 Let's change some of the parameters which make some of these groups less fishy! The feeidng kernel in teh above model is set up for fish. Here we use the model of Heneghan to describe a more planktivours feeding kernel form zooplankton and baleen whales.
 ```{r}
 
-####### feeding kernels
+####### feeding kernels - use box ones instead
 params<-mf.params
 
 #new predation kernel varies with pred size and species but is the same for all prey species, need to fill this in with values, according to Ryans' code
