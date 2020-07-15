@@ -49,10 +49,10 @@ params <- set_multispecies_model(params_dat,inter, kappa = 9.27e10)
 # run model to equilibrium and plot results
 sim <- project(params, effort = 1, t_max = 200, dt=0.1, dx=200)
 plot(sim)
-sim@params
-saveRDS(sim@params,"nsea_params.RDS")
-readRDS("nsea_params.RDS")
-
+plotSpectra(sim,power=2,total =T)
+#plotGrowthCurves(sim,species="Saithe")
+#getDiet(params)
+#tuneParams(params)
 ```
 
 If we agree the model has reached an equilibrium, we can take these equilibrium values (n form last timestep) and set up a dynamical run through time (a simlar example is also shown in the mizer vignette).
@@ -123,7 +123,8 @@ But we'd perhaps like much better agreement with data here. One issue could be t
 
 ```{r}
 #increase Rmax of cod
-params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10
+params<-upgradeParams(params)
+params@species_params$R_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10
 
 #re-run model
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
@@ -137,7 +138,7 @@ p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="re
 p
 
 #reduce Rmax of cod
-params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]/10
+params@species_params$R_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]/10
 
 #re-run model again...
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
@@ -159,7 +160,7 @@ Remember we ignored erepro  (which means we asumed all eggs are available to be 
 
 ```{r}
 #increase/decrease Rmax of cod
-params@species_params$r_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10 #REPLACE WITH YOUR VALUE HERE
+params@species_params$R_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10 #REPLACE WITH YOUR VALUE HERE
 
 #reduce erepro of cod
 params@species_params$erepro[params@species_params$species=="Cod"] <- 0.0005 #YOUR VALUE HERE

@@ -15,7 +15,6 @@ In this section of the workshop we will continue exploring how we can learn abou
 
 To begin with we will use the scaling model - which assumes eggs sizes are notthe same and might be a good representation of a background zooplankton + fish community.
 
-## The scaling model
 
 ```{r}
 #get required packages
@@ -60,8 +59,8 @@ Next let's read in the parameters we've put together for a Southern Ocean (Prydz
 ```{r}
 #read groups for southern ocean model
 groups<-read.csv("data/groups.csv")
-groups$w_mat[6] <- groups$w_inf[6]
 groups<-groups[-1,]
+
 #[-1,]
 #fix one value 
 #groups[7,"w_min"]<-4000
@@ -108,7 +107,7 @@ mf.params@species_params$R_max <- mf.params@species_params$R_max*10
 mf.params<- setParams(mf.params,kappa=1e6)
 
 
-sim <- project(mf.params, t_max=500)
+sim <- project(mf.params, t_max=500,dt = 0.1)
 plot(sim)
 getFeedingLevel(sim)
 #plotlyGrowthCurves(sim,species="macrozooplankton")
@@ -284,7 +283,7 @@ err
 
 
 
-We could skip ahead to  optimisation here to simply find the "best" single parameter values given the model and the data. Or carry out more advance Bayeisan methods. Instead, to illustrate how this works and to examine the error surface, we will set up a simple grid of parameters. Because the models runs are not actually dependent on each other (they are sequential), we can also do this much more quickly with parallel computing. Have a chat with your neighbour.
+We could skip ahead to  optimisation here to simply find the "best" single parameter values given the model and the data. Or carry out more advance Bayeisan methods. Instead, to illustrate how this works and to examine the error surface, we will set up a simple grid of parameters. Because the models runs are not actually dependent on each other (they are sequential), we can also do this much more quickly with parallel computing. 
 
 ```{r}
 
