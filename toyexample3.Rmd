@@ -26,7 +26,10 @@ library(devtools)
 #https://sizespectrum.org/mizer/dev/index.html
 library(mizer)
 require(tidyverse)
-options("mizer_new" = TRUE)
+
+remotes::install_github("sizespectrum/mizerExperimental")
+library(mizerExperimental)
+
 ```
 
 
@@ -81,26 +84,39 @@ We will pass these parameters to mizer to set up a new multispecies model.
 
 ```{r}
  
-mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,kappa = 1e3,min_w_pp = 1e-16,w_pp_cutoff = 1,r_pp = 10,z0pre = 0.1)
+mf.params <- newMultispeciesParams(species_params=groups,interaction=theta,kappa = 1e3,min_w_pp = 1e-16,w_pp_cutoff = 1,r_pp = 10,z0pre = 0.01)
 
 # mf.params@species_params$metab[1] <-0.01
 mf.params@species_params$h[] <- 10*mf.params@species_params$ks[] 
 
 # mf.params@species_params$gamma[1] <- 1000*(mf.params@species_params$gamma[1])
 mf.params@species_params$alpha[] <- 0.6
-mf.params@species_params$z0[1] <- 0.01
- #mf.params@species_params$sigma[1] <-3
- #mf.params@species_params$beta[1] <-10
- # mf.params@species_params$beta[1] <- 1e10
+#mf.params@species_params$z0[1] <- 0.01
+
+#higher mean betas
+ mf.params@species_params$beta[mf.params@species_params$species == "large.divers"] <-6000
+ mf.params@species_params$beta[mf.params@species_params$species == "apex.predators"] <-1000
+# # wider feeding kernels
+ mf.params@species_params$sigma[] <- 2
+ mf.params@species_params$sigma[mf.params@species_params$species == "baleen.whales"] <- 4
+
+
 # mf.params@species_params$w_mat25[1] <- 0.005*mf.params@species_params$w_inf[1]
 mf.params@species_params$erepro <- ifelse(mf.params@species_params$erepro==1,0.001,mf.params@species_params$erepro)
-mf.params@species_params$R_max <- mf.params@species_params$R_max*10
 
 # mf.params@interaction[] <-0.1
 #mf.params@interaction[,1] <-0
 #mf.params@interaction[1,1] <-1
 
 #mf.params@species_params$interaction_p[2:11] <-0.5
+
+# hand tuning to gte in line with data
+mf.params@species_params$R_max <- 10*mf.params@species_params$R_max
+
+
+# needs to be very different for marine mammals? use different repro assumptions (fixed offspring density per year)?
+
+
 
 # mf.params@species_params$w_mat <- 0.5*mf.params@species_params$w_inf
 # mf.params@species_params$w_mat[mf.params@species_params$species == "flying.birds"] <- 0.75*mf.params@species_params$w_inf[mf.params@species_params$species == "flying.birds"]
@@ -109,7 +125,7 @@ mf.params@species_params$R_max <- mf.params@species_params$R_max*10
 # mf.params@species_params$w_mat[10:12] <- 0.75*mf.params@species_params$w_inf[10:12]
 # setParams(mf.params)
 
-mf.params<- setParams(mf.params,kappa=1e6)
+mf.params<- setParams(mf.params,kappa=1e8)
 
 
 sim <- project(mf.params, t_max=500,dt = 0.1)
@@ -119,9 +135,10 @@ getFeedingLevel(sim)
 plotlyFeedingLevel(sim)
 # macrozooplankton - they are not growing enough,why?
 #tuneParams(mf.params)
+plotlyGrowthCurves(sim,percentage = T)
 ```
 
-Of we combine the biomassess from the model and add the data to  plot we cna look at how close/far we are.
+If we combine the biomassess from the model and add the data to  plot we cna look at how close/far we are.
 
 ```{r}
 # get biomass and covert to tonnes per area
@@ -140,6 +157,8 @@ return(simbio)
 }
 
 plotBioData(sim,dat)
+
+
 # 
 # 
 # ## have a look at paramters - metabolism
@@ -244,7 +263,8 @@ for (i in 1:length(mvals)) {
 Let's take a look now.
 ```{r}
   
-params<- setPredKernel(params, pred_kernel = pred_kern)
+params<- setParams(params, pred_kernel = pred_kern,kappa=1e7)
+
 
 new.mf<-project(params,t_max=100)
 
@@ -253,14 +273,19 @@ plot(new.mf)
 
 new.mf<-project(params,t_max=500,initial_n=new.mf@n[100,,],initial_n_pp=new.mf@n_pp[100,])
    
-  
+plot(new.mf)  
+plotlyFeedingLevel(new.mf)  
+plotlyGrowthCurves(new.mf,percentage = T) 
+plotlyBiomass(new.mf,percentage = T) 
+plotBioData(new.mf,dat)
+
 ```
 
 That helps baleen whales - and impact macrozoooplankton, but some of the predator groups are still not getting enough food.
 
 Next we could use Gustav's RShiny "tuner" to explore the params by  hand to epxlore why this is the case...
 ```{r}
-tuneParams(params)
+#tuneParams(params)
 ```
 
 ####### Calibration #######
