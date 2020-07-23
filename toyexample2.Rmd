@@ -28,52 +28,78 @@ PART A. Here we will explore the calibrated model and apply the dynamical forcin
 Preliminary set up again... if needed.
 ```{r}
 #get required packages
-library(devtools)
-#most up to date master branch of mizer
-#install_github("sizespectrum/mizer", ref = "master")
-#documentation here:
-#https://sizespectrum.org/mizer/dev/index.html
 library(mizer)
 library(tidyverse)
 
 ```
 
-Let's read in the saved calibrated parameters of the North sea model stored in the mizer package. 
+Let's read in the saved calibrated parameters of the North sea model stored in the mizer package. These examples do not use the exact same paramters as in the published papers, so are for illustrative purposes here.
 
 ```{r,warnings=F}
 #read saved params
-data(inter)
-params_dat<-read.csv("data/nsparams.csv")
-params_dat$gear<-params_dat$species
-params <- set_multispecies_model(params_dat,inter, kappa = 9.27e10)
-# run model to equilibrium and plot results
-sim <- project(params, effort = 1, t_max = 200, dt=0.1, dx=200)
+params <- newMultispeciesParams(NS_species_params, inter)
+# without fishing
+sim <- project(params, t_max = 100, effort = 0)
+# run model to equilibrium and plot results, with fishing.
+# here an effort = 1 will equate to a fihsing mortality rate = 1 and uses the default knife-edge selectivity function
+sim <- project(params, effort = 1, t_max = 200, dt=0.1, dx=200, kappa = 9.8e10)
+
 plot(sim)
 plotSpectra(sim,power=2,total =T)
-#plotGrowthCurves(sim,species="Saithe")
-#getDiet(params)
-#tuneParams(params)
+plotlyGrowthCurves(sim,percentage=T)
+plotDiet(params,species="Cod")
+
 ```
 
 If we agree the model has reached an equilibrium, we can take these equilibrium values (n form last timestep) and set up a dynamical run through time (a simlar example is also shown in the mizer vignette).
 
 ```{r}
 
+# get sigmoidal trawl slectivity parameters
+NS_species_params$a <- c(0.007, 0.001, 0.009, 0.002, 0.010, 0.006, 0.008, 0.004,
+                      0.007, 0.005, 0.005, 0.007)
+NS_species_params$b <- c(3.014, 3.320, 2.941, 3.429, 2.986, 3.080, 3.019, 3.198,
+                      3.101, 3.160, 3.173, 3.075)
+# set up the gear
+gear_params <- data.frame(species = NS_species_params$species,
+               gear = NS_species_params$species,
+               sel_func = "sigmoid_length",
+               l25 =  c(7.6, 9.8, 8.7, 10.1, 11.5, 19.8, 16.4, 19.8, 11.5,
+                        19.1, 13.2, 35.3),
+               l50 = c(8.1, 11.8, 12.2, 20.8, 17.0, 29.0, 25.8, 29.0, 17.0,
+                       24.3, 22.9, 43.6))
+
+
 #read in fishing mortality rate time series
+
 f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")[as.character(seq(1967,2010)),]
 
-#set up the effort time array as relative values to thes
+
+gear_params$catchability <- as.numeric(f_history["1990",])
+
+# minor note that in the paper these were time-averaged values not 1990
+
+params <- newMultispeciesParams(NS_species_params,
+                                interaction = inter,
+                                kappa = 9.27e10,
+                                gear_params = gear_params)
+
+# include spin up period of 100 years as initial model was not calibrated for the year 1990 but a decadal time-average
+
 relative_effort <- sweep(f_history,2,f_history["1990",],"/")
 
-# include spin up period of 200 years as initial model was not calibrated for the year 1990 but a decadal time-average
-initial_effort <- matrix(relative_effort[1,],byrow=TRUE, nrow=200,
-    ncol=ncol(relative_effort), dimnames = list(1767:1966))
-relative_effort <- rbind(initial_effort,relative_effort)
+initial_effort <- matrix(relative_effort[1, ], byrow = TRUE, nrow = 100,
+                         ncol = ncol(relative_effort), dimnames = list(1867:1966))
+relative_effort <- rbind(initial_effort, relative_effort)
+
 
 # run model
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
 
-# have a lok at the modelled yield
+plot(simt)
+
+
+# have a look at the modelled yield
 plotlyYield(simt)
 
 
@@ -116,15 +142,16 @@ p<-ggplot(y) + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value,
 p
 ```
 
-As expected the linear scale deviations look a lot worse than log scale. ANd som eof the tredns are capture but not the fluctuations. This isn't really suprising, given that the only driver that is changing is fishing (and also the estimates of the fishing mortality rates come from single species stock assessments). Our goal was to cpature trends, hence the fact that the model passes through the data points was satisifying our expectations. 
+As expected the linear scale deviations look a lot worse than log scale. And some of the trends are captured but not the fluctuations. This isn't really suprising, given that the only driver that is changing is fishing (and also the estimates of the fishing mortality rates come from single species stock assessments). Our goal was to cpature trends, hence the fact that the model passes through the data points was satisifying our original expectations. 
 
 But we'd perhaps like much better agreement with data here. One issue could be that the Rmax values we previously estimated make the species much less reactive to fishing. Let's examine hpw sensitive the time series (and their visual agreement to data look when we change our assumptions about Rmax and also eRepro). You could use an RShiny app to do this interactively instead (see "app.R" which is a partially started example!).
 
 
 ```{r}
 #increase Rmax of cod
-params<-upgradeParams(params)
-params@species_params$R_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10
+#params<-upgradeParams(params)
+params@species_params$R_max[params@species_params$species=="Cod"] <- 8e+10
+params <- setReproduction(params)
 
 #re-run model
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
@@ -138,8 +165,8 @@ p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="re
 p
 
 #reduce Rmax of cod
-params@species_params$R_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]/10
-
+params@species_params$R_max[params@species_params$species=="Cod"] <- 5e+9
+params <- setParams(params)
 #re-run model again...
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
 
@@ -148,7 +175,7 @@ y <- getYield(simt)
 y <- reshape2::melt(y)
 
 # again look only at Cod and examine on linear not log scale
-p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="red") 
+p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="blue") 
 p
 
 
@@ -156,14 +183,17 @@ p
 
 Questions: How do these trends differ in terms of the catch time series? What do the numbers in the smallest size class look like through time under these different parameters? 
 
-Remember we ignored erepro  (which means we asumed all eggs are available to be eaten and potnetially grow). This is often assumed to be a much smaller value. Explore the consequences of changing erpepro at very high (and perhaps very low values of Rmax). How would these different values influence the goodness of fit to data if we were to next use a time series fitting approach? What about the other species dynamics? 
+Remember we ignored erepro  (which means we asumed all eggs are available to be eaten and potnetially grow). This is often assumed to be a much smaller value. Explore the consequences of changing erepro at very high (and perhaps very low values of Rmax). How would these different values influence the goodness of fit to data if we were to next use a time series fitting approach? What about the other species dynamics? 
 
 ```{r}
 #increase/decrease Rmax of cod
-params@species_params$R_max[params@species_params$species=="Cod"] <- params_dat$r_max[params_dat$species=="Cod"]*10 #REPLACE WITH YOUR VALUE HERE
+params@species_params$R_max[params@species_params$species=="Cod"] <- 5e9 #REPLACE WITH YOUR VALUE HERE
+
 
 #reduce erepro of cod
-params@species_params$erepro[params@species_params$species=="Cod"] <- 0.0005 #YOUR VALUE HERE
+params@species_params$erepro[params@species_params$species=="Cod"] <- 0.0005#YOUR VALUE HERE
+
+params <- setParams(params)
 
 #re-run model again...
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
