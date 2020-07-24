@@ -275,12 +275,15 @@ We can explore the effects further using Rshiny app, where we also have a plot o
 ```{r}
 library(shiny)
 runApp("shiny-equilibrium")
+# is there a way to save the final chosen values?
+#downloadButton('downloadData', 'Download data'))
 ```
 
-The shiny app helps with understanding the model but it is tricky to arrive at the bets fit especially if we want to change several species parameter combinations at a time.
+The shiny app helps with understanding the model but it is tricky to arrive at the best fit especially if we want to change several species parameter combinations at a time.
+
 Let's choose some values that enable the most species to coexist as a starting point for optimisation. Note we won't vary erepro at the same time as Rmax (they depend on each other). However we will use the value of erepro selcted form the shiny app.
 
-#### Step 3. Calibrate the maximum recruitment, \Rmax, which will affect the relative biomass of each species (and, combined with the fishing parameters, the catches) by minimising the error between observed and estimated catches (again or biomasses). We will also include kappa here.
+#### Step 3. Calibrate the maximum recruitment, \Rmax, which will affect the relative biomass of each species (and, combined with the fishing parameters, the catches) by minimising the error between observed and estimated catches (or biomasses). We will also include kappa here.
 
 
 This will take AWHILE, so go watch some Netflix.
