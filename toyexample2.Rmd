@@ -36,13 +36,11 @@ library(tidyverse)
 Let's read in the saved calibrated parameters of the North sea model stored in the mizer package. These examples do not use the exact same paramters as in the published papers, so are for illustrative purposes here.
 
 ```{r,warnings=F}
-#read saved params
-params <- newMultispeciesParams(NS_species_params, inter)
-# without fishing
-sim <- project(params, t_max = 100, effort = 0)
+#read saved sim object from previous example
+sim <- readRDS("optim_sim.RDS")
 # run model to equilibrium and plot results, with fishing.
 # here an effort = 1 will equate to a fihsing mortality rate = 1 and uses the default knife-edge selectivity function
-sim <- project(params, effort = 1, t_max = 200, dt=0.1, dx=200, kappa = 9.8e10)
+sim <- project(sim@params, effort = 1, t_max = 200, dt=0.1,initial_n = sim@n[500,,], initial_npp = sim@n[500,])
 
 plot(sim)
 plotSpectra(sim,power=2,total =T)
@@ -55,20 +53,7 @@ If we agree the model has reached an equilibrium, we can take these equilibrium 
 
 ```{r}
 
-# get sigmoidal trawl slectivity parameters
-NS_species_params$a <- c(0.007, 0.001, 0.009, 0.002, 0.010, 0.006, 0.008, 0.004,
-                      0.007, 0.005, 0.005, 0.007)
-NS_species_params$b <- c(3.014, 3.320, 2.941, 3.429, 2.986, 3.080, 3.019, 3.198,
-                      3.101, 3.160, 3.173, 3.075)
-# set up the gear
-gear_params <- data.frame(species = NS_species_params$species,
-               gear = NS_species_params$species,
-               sel_func = "sigmoid_length",
-               l25 =  c(7.6, 9.8, 8.7, 10.1, 11.5, 19.8, 16.4, 19.8, 11.5,
-                        19.1, 13.2, 35.3),
-               l50 = c(8.1, 11.8, 12.2, 20.8, 17.0, 29.0, 25.8, 29.0, 17.0,
-                       24.3, 22.9, 43.6))
-
+# note we have sigmoidal trawl slectivity parameters
 
 #read in fishing mortality rate time series
 
@@ -78,11 +63,6 @@ f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")[as.character(seq
 gear_params$catchability <- as.numeric(f_history["1990",])
 
 # minor note that in the paper these were time-averaged values not 1990
-
-params <- newMultispeciesParams(NS_species_params,
-                                interaction = inter,
-                                kappa = 9.27e10,
-                                gear_params = gear_params)
 
 # include spin up period of 100 years as initial model was not calibrated for the year 1990 but a decadal time-average
 
@@ -110,7 +90,7 @@ You can zoom in to get a closer look at these in the forcing stage. Here, we are
 ```{r}
 # output modelled yields and reshape for plotting
 y <- getYield(simt)
-y <- reshape2::melt(y)
+y <- reshape2::melt(y)/1e6
 
 #read in obsy yield values
 obsy <- read.csv("data/obslandings.csv")[,-1]

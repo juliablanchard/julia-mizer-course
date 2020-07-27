@@ -20,19 +20,17 @@ shinyUI(fluidPage(
   
   fluidRow(
     column(4, wellPanel(
-       sliderInput("kappa", "log10 Resource Carrying Capacity:", min = 2, max = 12, value = 12,
-                   step = 1),
-       sliderInput("Rmax", "log10 Maximum Recruitment:", min = 4, max = 12, value = 12,
-                   step = 1),
-       sliderInput("erepro", "log10 Reproductive Efficiency:", min = -8, max = 1, value = 1,
-                   step = 1)
-       #textInput("text", "Text:"
-       #textInput("text", "Text:", "text here"),
-    #  submitButton("Submit")
-    )),
+       sliderInput("kappa", "log10 Resource Carrying Capacity:", min = 8, max = 12, value = 10.7,
+                   step = 0.1),
+    #   sliderInput("Rmax", "log10 Maximum Recruitment:", min = 1, max = 12, value = 12,
+    #              step = 0.1),
+       sliderInput("erepro", "log10 Reproductive Efficiency:", min = -8, max = 1, value = -3,
+                   step = 0.1)
+          )),
     column(6,
            plotOutput("distPlot", width = 600, height = 600)
     ))
+     
   
     
   )
