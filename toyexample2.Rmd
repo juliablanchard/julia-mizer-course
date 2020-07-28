@@ -122,6 +122,7 @@ initial_effort[as.character(1867:1900),]
 
 relative_effort <- rbind(initial_effort, relative_effort)
 
+
 ##### project model
 
 simt <- project(params, effort = relative_effort, dt = 0.25, t_save = 1)
@@ -222,19 +223,24 @@ p3
 
 ```
 
-Questions: How do these trends differ in terms of the catch time series when these parameters are varied? What do the numbers in the smallest size class look like through time under these different parameters? How would these different values of erepro and Rmax influence the goodness of fit to data if we were to next use a time series fitting approach? What about the other species dynamics? 
-
-What happens to the visual "fit"? Feel free to explore a little further with your own questions. Then let's come back to the "tips" and our discussion session.
 
 You could use RShiny to do this interactively instead:
 
 ```{r}
-
-
+library(shiny)
+runApp("shiny_timeseries")
+# need to work out how to input the values
+# is there a way to save the final chosen values?
 ```
 
 
-#### Need to update north sea stock assessment data, here are the catches:
+Questions: How do these trends differ in terms of the catch time series when these parameters are varied for each species? What happens to the visual "fit"? What does this tell us about density dependence for different species? How would these different values of erepro and Rmax influence the goodness of fit to data if we were to next use a time series fitting approach? Do changes in these values affect the other species dynamics? 
+
+Feel free to explore a little further with your own questions. Then let's come back to the "tips" and our discussion session.
+
+
+
+######### JB notes to do: need to update with more recent north sea stock assessment data, here are the catches:
 
 Overall database:
 https://standardgraphs.ices.dk/stockList.aspx
