@@ -183,12 +183,12 @@ The background resource parameters and the recruitment parameters, \Rmax (maximu
 
 The recruitment parameters are highly uncertain and capture density dependent processes in the model that limit the number of offspring that successfully recruit to the smallest size class for each species. In the default mizer package these paramters are used to implement an emergent Beverton-Holt type stock recruitment relationship. 
 
-As a starting point, we will estimate these parameters as a means of fitting the modelled species catches to the observed catches. This could similarly be carried out with biomasses. Other model detailed approaches also exist, see my presentation, but this approach has been used to get model sin the right "ball-park".
+As a starting point, we will estimate these parameters as a means of fitting the modelled species catches to the observed catches. This could similarly be carried out with biomasses. Other model detailed approaches also exist, see my presentation, but this approach has been used to get models in the right "ball-park".
 
 
 ### A Simple Protocol for Multispecies Model Calibration
 
-We will adapt the "recipes" for calibration in Jacobsen et al 2014 (see supp. mat.) and Blanchard et al (2014), into the following steps:
+We will adapt the "recipe" for calibration in Jacobsen et al 2014 (see supp. mat.) and Blanchard et al (2014), into the following steps:
 
 
 0. Run the model with the chosen species-specific parameters. This will relate some of the missing paramsters to \Winf. \Rmax will also be automatically calculated based on equilbrium assumptions (Andersen et al. 2016).
@@ -199,11 +199,11 @@ We will adapt the "recipes" for calibration in Jacobsen et al 2014 (see supp. ma
 
 3. Calibrate the maximum recruitment, \Rmax, which will affect the relative biomass of each species (and, combined with the fishing parameters, the catches) by minimising the error between observed and estimated catches (again or biomasses).
 
-4. Check that the physiological recruitment, \RDI, is much higher than the realised recruitment, \RDD. This can be done using the getRDD and getRDI functions and calculating the ratio which should be around 100  for a specis with \Winf = 1500 g, but varies with asymptotic size and fishing mortality (Andersen 2019). High RDI/RDD ratio indicates the carrying capacity is controlling the population rather than predation or competition. Larger species often require more of this density dependent control than smaller ones. If RDI/RDD is too high, the efficiency of reproduction (erepro) can be lowered to ensure species do not outcompete others or or over-resilient to fishing. Lowering erepro biologically means higher egg mortality rate or wasteful energy invested into gonads. If RDI/RDD = 1 the species is in the linear pafrt of the stock recruitment relationship (no density dependence).
+4. Check that the physiological recruitment, \RDI, is much higher than the realised recruitment, \RDD. This can be done using the getRDD and getRDI functions and calculating the ratio which should be around 100  for a specis with \Winf = 1500 g, but varies with asymptotic size and fishing mortality (Andersen 2019). High RDI/RDD ratio indicates the carrying capacity is controlling the population rather than predation or competition. Larger species often require more of this density dependent control than smaller ones. If RDI/RDD is too high, the efficiency of reproduction (erepro) can be lowered to ensure species do not outcompete others or or over-resilient to fishing. Lowering erepro biologically means higher egg mortality rate or wasteful energy invested into gonads. If RDI/RDD = 1 the species is in the linear part of the stock recruitment relationship (no spawner-recruit density dependence).
 
 5. Verify the model after the above step by comparing the model with: species biomass or abundance distrubtions, feeding level, naturality mortality, growth, vulnerablity to fishing (fmsy) and catch, diet composition. Many handy functions for plotting these are available here: https://sizespectrum.org/mizer/reference/index.html
 
-6. The final verification step is to force the model with time-varying fishing mortality to assess whether changes in time series in biomassess and catches capture observed trends. The model will not cpature all of the fluctuations from environmental processes ( unless some of these are included), but should match the magnitude and general trend in the data.
+6. The final verification step is to force the model with time-varying fishing mortality to assess whether changes in time series in biomassess and catches capture observed trends. The model will not cpature all of the fluctuations from environmental processes (unless some of these are included), but should match the magnitude and general trend in the data.
 
 #### Step 0. Run the model with the chosen species-specific parameters. This will relate some of the missing paramsters to \Winf. \Rmax will also be automatically calculated based on equilbrium assumptions (Andersen et al. 2016).
 
@@ -235,7 +235,7 @@ library(viridis)
 params@linecolour[1:12] <-plasma(12)
 params@linecolour["Resource"] <-"seagreen3"
 
-# run without fishing
+# run with fishing
 sim <- project(params, t_max = 100, effort = 1)
 
 plot(sim)
