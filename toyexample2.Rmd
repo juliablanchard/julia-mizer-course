@@ -51,37 +51,74 @@ plotDiet(params,species="Cod")
 
 If we agree the model has reached an equilibrium, we can take these equilibrium values (n form last timestep) and set up a dynamical run through time (a simlar example is also shown in the mizer vignette).
 
+#### Forcing the model with fishing mortality rate (F) time series
+
+
 ```{r}
+params<-sim@params
+# note we have sigmoidal trawl slectivity parameters, but we need to set up a gearfor each species to force eachs species separately
 
-# note we have sigmoidal trawl slectivity parameters
+# to do this, we need to rebuild the params object 
+inter <- sim@params@interaction
+species_params <- params@species_params
+gear_params<-data.frame(species = species_params$species,
+               gear = species_params$species,
+               sel_func = "sigmoid_length",
+               l25 =  c(7.6, 9.8, 8.7, 10.1, 11.5, 19.8, 16.4, 19.8, 11.5,
+                        19.1, 13.2, 35.3),
+               l50 = c(8.1, 11.8, 12.2, 20.8, 17.0, 29.0, 25.8, 29.0, 17.0,
+                       24.3, 22.9, 43.6),
+               catchability = params@species_params$catchability)
 
-#read in fishing mortality rate time series
+params <- newMultispeciesParams(species_params,
+                                interaction = inter,
+                                kappa = params@resource_params$kappa,
+                                gear_params = gear_params)
 
-f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")[as.character(seq(1967,2010)),]
 
 
-gear_params$catchability <- as.numeric(f_history["1990",])
+sim <- project(params, effort = 1, t_max = 200, dt=0.1,initial_n = sim@n[200,,], initial_npp = sim@n[200,])
 
-# minor note that in the paper these were time-averaged values not 1990
+plot(sim)
 
-# include spin up period of 100 years as initial model was not calibrated for the year 1990 but a decadal time-average
+#read in fishing mortality rate time series (note: this matrix is different to the one I used in the paper, and is out of date. It's just for illustration here for consistency with mizer website)
 
-relative_effort <- sweep(f_history,2,f_history["1990",],"/")
+f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")
+
+#f_history<-as(read.csv("data/NS_f_history.csv", row.names=1), "matrix")
+head(f_history)
+
+# reset gear params - currently only 1 gear  - this needs to be species species because reallyt we are forcing the model by species-specific estimated F mortality rates rather than effort of each "gear" per se.
+
+params <- setParams(params)
+
+relative_effort <- sweep(f_history,2,gear_params(params)$catchability,"/")
+# check
+relative_effort[as.character(1988:1992),]
+# for some reason these values are different than on the mizer website - need to look into that that, but use for now.
+
+# add ramping up up period from 1867 1957 
 
 initial_effort <- matrix(relative_effort[1, ], byrow = TRUE, nrow = 100,
                          ncol = ncol(relative_effort), dimnames = list(1867:1966))
+
+initial_effort ["1857",] <- 0
+
+for (i in 1:12) initial_effort [as.character(1867:1966),i] <- seq(from = initial_effort ["1857",i], to = initial_effort ["1956",i], length = 1966-1867+1)
+
+# check that has worked
+initial_effort[as.character(1867:1900),]
+
 relative_effort <- rbind(initial_effort, relative_effort)
 
+##### project model
 
-# run model
-simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
+simt <- project(params, effort = relative_effort, dt = 0.25, t_save = 1)
 
 plot(simt)
 
-
 # have a look at the modelled yield
 plotlyYield(simt)
-
 
 ```
 
@@ -90,11 +127,10 @@ You can zoom in to get a closer look at these in the forcing stage. Here, we are
 ```{r}
 # output modelled yields and reshape for plotting
 y <- getYield(simt)
-y <- reshape2::melt(y)/1e6
+y <- reshape2::melt(y)
 
 #read in obsy yield values
-obsy <- read.csv("data/obslandings.csv")[,-1]
-
+obsy <- read.csv("data/obslandings.csv")[,-1] 
 # plot these
 ggplot(y) + geom_line(data=y, aes(x = time, y = log(value), 
             colour = sp)) +
@@ -110,10 +146,10 @@ ggplot(y) + geom_line(data=y, aes(x = time, y = log(value),
 The trends look kind of OK (except for Gurnard - where the data and knowledge of fishing mortality rates are poor). They are in line with our goals for model to pass through the cloud of points -  but this is a log-scale plot. Let's have a closer look at a particular species and use the less forgiving linear scale.
 
 ```{r}
-# look only at Cod and examine on linear not log scale
-p<-ggplot(y) + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value, 
+# look only at  Sprat and examine on linear not log scale: SOMETHING WEIRD WITH THESE DATA - NEED TO CHECK!!
+p<-ggplot(y) + geom_line(data=filter(y,sp=="Sprat"), aes(x = time, y = value, 
             colour = sp)) +
-      geom_point(data=filter(obsy,sp=="Cod"),aes(x = time, y = value, 
+      geom_point(data=filter(obsy,sp=="Sprat"),aes(x = time, y = value, 
             colour = sp),size=0.6) +
     #facet_wrap(~sp) +
     scale_y_continuous(name = "Yield [g/year]")  +
@@ -188,4 +224,51 @@ p
 ```
 
 What happens to the visual "fit"? Feel free to explore a little further with your own questions. Then let's come back to the "tips" and our discussion session.
+
+
+
+
+
+#### Need to update on north sea stock assessment data, here are the catches:
+
+Overall database:
+https://standardgraphs.ices.dk/stockList.aspx
+
+
+Sprat: https://standardgraphs.ices.dk/ViewSourceData.aspx?key=13322
+
+Sandeel : https://standardgraphs.ices.dk/ViewCharts.aspx?key=13303
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13301
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13298
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13304
+
+N.pout - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13166
+
+Herring - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13422
+
+Dab - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13184
+ 
+Whiting - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13525
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13506
+
+Sole - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13743
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13495
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13828
+
+Gurnard - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13493
+
+Plaice - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13484
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13744
+
+Haddock - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13204
+
+Cod - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13740
+https://standardgraphs.ices.dk/ViewCharts.aspx?key=13838
+
+Saithe - https://standardgraphs.ices.dk/ViewCharts.aspx?key=13511
+
+
+
+
+
 
