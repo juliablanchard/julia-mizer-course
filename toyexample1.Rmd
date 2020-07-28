@@ -249,13 +249,14 @@ Oh dear, all of the species but 2 have collapsed! This is because there was no d
 
 ```{r}
 
-#read in time -averaged  catches  
-cdat<-read.csv("data/time-averaged-catches.csv") ### CHECK UNITS!!! '000 tonnes?
+#read in time-averaged  catches  
+cdat<-read.csv("data/time-averaged-catches.csv") ### units: tonnes
 
-# the fishing moratlty rates are already stored in the param object as params@species_params$catchability
+# the fishing moratlty rates are already stored in the param object as
+params@species_params$catchability
 
 # let's start again and replace with the initial pre-calibration "guessed" Rmax and Kappa
-params@resource_params$kappa = 5e10
+params@resource_params$kappa = 1e11
 # penalise the large species with higher density dependence
 params@species_params$R_max <- params@resource_params$kappa*params@species_params$w_inf^-1
 # and reduce erepro
@@ -269,7 +270,7 @@ plot(sim)
 
 ```
 
-Some more species are coexisting. You can play with the above parameters but but it would take a lot of trial an error to acheive the right combination.
+Species are coexisting. This is in part because we applied a stronger  Rmax effect for larger species. You can play with the above parameters but but it would take a lot of trial an error to achieve the right combination to get the biomass or catches similar to the observations.
 
 #### Step 2. Calibrate the carrying capacity of the background resource spectrum, \kappa, by minimising the error between the modelled and observed  abundance, biomass or catches. 
 
@@ -367,11 +368,15 @@ saveRDS(vals,"optim_vals.RDS")
 # save params - may want to repeat this setp depending on diagnostics, after changing some parameters
 saveRDS(params,"optim_param.RDS")
 saveRDS(sim,"optim_sim.RDS")
+
+
 ```
 
 #### Step 4. Check that the physiological recruitment, \RDI, is much higher than the realised recruitment, \RDD. High RDI/RDD ratio.
 
 ```{r}
+#params<- readRDS("optim_param.RDS")
+#sim <- readRDS("optim_sim.RDS")
 getRDI(params)/getRDD(params)
 
 # seems like the right ballpark according to protocal
@@ -381,7 +386,6 @@ getRDI(params)/getRDD(params)
 # params <- setParams(params)
 # sim <- project(params, effort = 1, t_max = 500, dt=0.1)
 # plot(sim)
-
 
 ```
 
