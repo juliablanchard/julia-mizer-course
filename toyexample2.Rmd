@@ -38,13 +38,16 @@ Let's read in the saved calibrated parameters of the North sea model stored in t
 ```{r,warnings=F}
 #read saved sim object from previous example
 sim <- readRDS("optim_sim.RDS")
+params<-sim@params
+
 # run model to equilibrium and plot results, with fishing.
 # here an effort = 1 will equate to a fihsing mortality rate = 1 and uses the default knife-edge selectivity function
-sim <- project(sim@params, effort = 1, t_max = 200, dt=0.1,initial_n = sim@n[500,,], initial_npp = sim@n[500,])
+sim <- project(params, effort = 1, t_max = 200, dt=0.1,initial_n = sim@n[500,,], initial_npp = sim@n[500,])
 
 plot(sim)
 plotSpectra(sim,power=2,total =T)
 plotlyGrowthCurves(sim,percentage=T)
+
 plotDiet(params,species="Cod")
 
 ```
@@ -55,8 +58,8 @@ If we agree the model has reached an equilibrium, we can take these equilibrium 
 
 
 ```{r}
-params<-sim@params
-# note we have sigmoidal trawl slectivity parameters, but we need to set up a gearfor each species to force eachs species separately
+
+# note we have sigmoidal trawl slectivity parameters, but we need to set up a gearfor each species to force each species separately
 
 # to do this, we need to rebuild the params object 
 inter <- sim@params@interaction
@@ -70,41 +73,49 @@ gear_params<-data.frame(species = species_params$species,
                        24.3, 22.9, 43.6),
                catchability = params@species_params$catchability)
 
+# reinitiate the params
 params <- newMultispeciesParams(species_params,
                                 interaction = inter,
                                 kappa = params@resource_params$kappa,
                                 gear_params = gear_params)
 
 
-
+# re-run
 sim <- project(params, effort = 1, t_max = 200, dt=0.1,initial_n = sim@n[200,,], initial_npp = sim@n[200,])
 
 plot(sim)
+```
 
-#read in fishing mortality rate time series (note: this matrix is different to the one I used in the paper, and is out of date. It's just for illustration here for consistency with mizer website)
+### Forcing changes in species' fishing mortality rates through time
 
-f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")
+Next, we will read in fishing mortality rate time series (note: this matrix is different to the one I used in the paper, and is out of date. It's just for illustration here for consistency with mizer website, needsto be updated with more recent ICES data).
 
+```{r}
+#read saved data
+
+f_history<-as(read.csv("data/fmat.csv", row.names=1), "matrix")[as.character(1967:2010),]
+
+#the below one is stored on the mizer website.
 #f_history<-as(read.csv("data/NS_f_history.csv", row.names=1), "matrix")
+# for some reason these values are different than on the mizer website - need to look into that that, but use for now.
+
 head(f_history)
 
-# reset gear params - currently only 1 gear  - this needs to be species species because reallyt we are forcing the model by species-specific estimated F mortality rates rather than effort of each "gear" per se.
-
-params <- setParams(params)
+# express as "relative effort" - here relative to the time-averaged fishing mortality rates used to calirbate the model.
 
 relative_effort <- sweep(f_history,2,gear_params(params)$catchability,"/")
 # check
 relative_effort[as.character(1988:1992),]
-# for some reason these values are different than on the mizer website - need to look into that that, but use for now.
 
-# add ramping up up period from 1867 1957 
+
+# add a linear ramping up up period from 1867 -1967 
 
 initial_effort <- matrix(relative_effort[1, ], byrow = TRUE, nrow = 100,
                          ncol = ncol(relative_effort), dimnames = list(1867:1966))
 
-initial_effort ["1857",] <- 0
+initial_effort ["1867",] <- 0
 
-for (i in 1:12) initial_effort [as.character(1867:1966),i] <- seq(from = initial_effort ["1857",i], to = initial_effort ["1956",i], length = 1966-1867+1)
+for (i in 1:12) initial_effort [as.character(1867:1966),i] <- seq(from = initial_effort ["1867",i], to = initial_effort ["1966",i], length = 1966-1867+1)
 
 # check that has worked
 initial_effort[as.character(1867:1900),]
@@ -129,24 +140,28 @@ You can zoom in to get a closer look at these in the forcing stage. Here, we are
 y <- getYield(simt)
 y <- reshape2::melt(y)
 
-#read in obsy yield values
+#read in observed yield values (again need to update these data from ICES)
+
 obsy <- read.csv("data/obslandings.csv")[,-1] 
 # plot these
-ggplot(y) + geom_line(data=y, aes(x = time, y = log(value), 
+ggplot(y) + geom_line(data=y, aes(x = time, y = (value)/1e6, 
             colour = sp)) +
-      geom_point(data=obsy,aes(x = time, y = log(value), 
+      geom_point(data=obsy,aes(x = time, y = (value)/1e6, 
             colour = sp),size=0.1) +
-    facet_wrap(~sp) +
-    scale_y_continuous(name = "log Yield [g/year]")  +
+    facet_wrap(~sp,scales="free_y") +
+    scale_y_continuous(name = "ield [g/year]")  +
     scale_colour_manual(values = sim@params@linecolour) +
     xlim(1957, 2011)
 
 ```
 
-The trends look kind of OK (except for Gurnard - where the data and knowledge of fishing mortality rates are poor). They are in line with our goals for model to pass through the cloud of points -  but this is a log-scale plot. Let's have a closer look at a particular species and use the less forgiving linear scale.
+The trends look kind of OK for some but really not for others.  Remeber we re-calibrated this model with completely different assumptions than the before. 
+
+Are the fits in line with our goals for model? They to pass through the cloud of points for some... Let's have a closer look at a particular species and use the less forgiving linear scale.
 
 ```{r}
-# look only at  Sprat and examine on linear not log scale: SOMETHING WEIRD WITH THESE DATA - NEED TO CHECK!!
+# look only at  Sprat and examine on linear 
+
 p<-ggplot(y) + geom_line(data=filter(y,sp=="Sprat"), aes(x = time, y = value, 
             colour = sp)) +
       geom_point(data=filter(obsy,sp=="Sprat"),aes(x = time, y = value, 
@@ -154,19 +169,21 @@ p<-ggplot(y) + geom_line(data=filter(y,sp=="Sprat"), aes(x = time, y = value,
     #facet_wrap(~sp) +
     scale_y_continuous(name = "Yield [g/year]")  +
     scale_colour_manual(values = sim@params@linecolour) +
-    xlim(1957, 2011)
+    xlim(1965, 2011)
 p
 ```
 
-As expected the linear scale deviations look a lot worse than log scale. And some of the trends are captured but not the fluctuations. This isn't really suprising, given that the only driver that is changing is fishing (and also the estimates of the fishing mortality rates come from single species stock assessments). Our goal was to cpature trends, hence the fact that the model passes through the data points was satisifying our original expectations. 
+As expected some of the trends are captured but not the fluctuations. This isn't really suprising, given that the only driver that is changing is fishing (and also the estimates of the fishing mortality rates come from single species stock assessments). Our goal was to cpature trends, hence the fact that the model passes through atleast some of the data points was satisifying our original expectations. 
 
-But we'd perhaps like much better agreement with data here. One issue could be that the Rmax values we previously estimated make the species much less reactive to fishing. Let's examine hpw sensitive the time series (and their visual agreement to data look when we change our assumptions about Rmax and also eRepro). You could use an RShiny app to do this interactively instead (see "app.R" which is a partially started example!).
+But we'd really like much better agreement with data here. One issue could be that the erepro values we just re-calibrated the model make the species much more reactive to fishing. Let's examine how sensitive the time series (and their visual agreement to data look when we change our assumptions about eRepro, and possibly Rmax). 
 
+Remember when erepro is 1 essentially all eggs (after density dependent recruitment, Rmax) are available to be eaten and potentially grow.  Explore the consequences of changing erepro at very high (and perhaps very low values of Rmax). 
 
 ```{r}
-#increase Rmax of cod
-#params<-upgradeParams(params)
-params@species_params$R_max[params@species_params$species=="Cod"] <- 8e+10
+
+#increase erepro of Sprat
+params@species_params$erepro[params@species_params$species=="Sprat"] <- 10^(-0.5)
+
 params <- setReproduction(params)
 
 #re-run model
@@ -176,12 +193,15 @@ simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n =
 y <- getYield(simt)
 y <- reshape2::melt(y)
 
-# again look only at Cod and examine on linear not log scale
-p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="red") 
-p
+# again look only at this species and examine on linear not log scale
+p2 <- p + geom_line(data=filter(y,sp=="Sprat"), aes(x = time, y = value),colour="red") 
+p2
 
-#reduce Rmax of cod
-params@species_params$R_max[params@species_params$species=="Cod"] <- 5e+9
+
+#reduce Rmax of Sprat
+params@species_params$R_max[params@species_params$species=="Sprat"] <- 1e+12
+
+
 params <- setParams(params)
 #re-run model again...
 simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
@@ -190,46 +210,31 @@ simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n =
 y <- getYield(simt)
 y <- reshape2::melt(y)
 
-# again look only at Cod and examine on linear not log scale
-p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="blue") 
-p
+# again look only at Sprat and examine on linear not log scale
+p3 <- p2 + geom_line(data=filter(y,sp=="Sprat"), aes(x = time, y = value),colour="blue") 
+p3
 
+# # reset Rmax to our calibrated values
+# params@species_params$R_max[params@species_params$species=="Sprat"] <- species_params$R_max[params@species_params$species=="Sprat"]
+# 
+# # reset erepro to our calibrated values
+# params@species_params$erepro[params@species_params$species=="Sprat"] <- species_params$erepro[params@species_params$species=="Sprat"]
 
 ```
 
-Questions: How do these trends differ in terms of the catch time series? What do the numbers in the smallest size class look like through time under these different parameters? 
-
-Remember we ignored erepro  (which means we asumed all eggs are available to be eaten and potnetially grow). This is often assumed to be a much smaller value. Explore the consequences of changing erepro at very high (and perhaps very low values of Rmax). How would these different values influence the goodness of fit to data if we were to next use a time series fitting approach? What about the other species dynamics? 
-
-```{r}
-#increase/decrease Rmax of cod
-params@species_params$R_max[params@species_params$species=="Cod"] <- 5e9 #REPLACE WITH YOUR VALUE HERE
-
-
-#reduce erepro of cod
-params@species_params$erepro[params@species_params$species=="Cod"] <- 0.0005#YOUR VALUE HERE
-
-params <- setParams(params)
-
-#re-run model again...
-simt <- project(params, effort=relative_effort, dt = 0.1, t_save = 1,initial_n = sim@n[200,,],initial_n_pp = sim@n_pp[200,])
-
-# output modelled yields and reshape for plotting
-y <- getYield(simt)
-y <- reshape2::melt(y)
-
-# again look only at Cod and examine on linear not log scale
-p <- p + geom_line(data=filter(y,sp=="Cod"), aes(x = time, y = value),colour="blue") 
-p
-```
+Questions: How do these trends differ in terms of the catch time series when these parameters are varied? What do the numbers in the smallest size class look like through time under these different parameters? How would these different values of erepro and Rmax influence the goodness of fit to data if we were to next use a time series fitting approach? What about the other species dynamics? 
 
 What happens to the visual "fit"? Feel free to explore a little further with your own questions. Then let's come back to the "tips" and our discussion session.
 
+You could use RShiny to do this interactively instead:
+
+```{r}
 
 
+```
 
 
-#### Need to update on north sea stock assessment data, here are the catches:
+#### Need to update north sea stock assessment data, here are the catches:
 
 Overall database:
 https://standardgraphs.ices.dk/stockList.aspx
